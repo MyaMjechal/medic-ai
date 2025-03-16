@@ -104,41 +104,35 @@ First responders gain critical visual and contextual information, improving resp
 
 #### **ViLMedic: A Framework for Research at the Intersection of Vision and Language in Medical AI**  
 - **Authors:** Jean-benoit Delbrouck, Saab, K., Varma, M., Sabri Eyuboglu, Chambon, P., Dunnmon, J., Zambrano, J., Chaudhari, A., & Langlotz, C.  
-- **Citations:** N/A  
-- **Year:** 2022  
+- **Year:** 2022
 - **Summary:** ViLMedic presents a **vision-language framework** for medical AI, demonstrating **OCR-based text extraction from medical packaging** and **structured summarization using NLP models**. The study validates the effectiveness of **multimodal learning** in **medical document processing**, aligning with Medic AI’s **medicine scanning module**.  
 
 #### **LlamaCare: An Instruction Fine-Tuned Large Language Model for Clinical NLP**  
-- **Authors:** Li, R., Wang, X., & Yu, H.  
-- **Citations:** N/A  
-- **Year:** 2024  
+- **Authors:** Li, R., Wang, X., & Yu, H.   
+- **Year:** 2024
 - **Summary:** LlamaCare fine-tunes **large clinical NLP models** using instruction-based learning, significantly improving their ability to **extract structured medical information**. The study highlights how **domain-specific instructions enhance clinical text coherence and accuracy**, making it relevant for **Medic AI’s medication summarization feature**.  
 
 ### **B. Specialist Recommendation Based on Symptoms**  
 
 #### **Medical Knowledge-Enhanced Prompt Learning for Diagnosis Classification from Clinical Text**  
-- **Authors:** Lu, Y., Zhao, X., & Wang, J.  
-- **Citations:** N/A  
-- **Year:** 2023  
+- **Authors:** Lu, Y., Zhao, X., & Wang, J.   
+- **Year:** 2023
 - **Summary:** This study introduces a **medical knowledge-enhanced prompting framework (MedKPL)** for **symptom classification and diagnostic reasoning**. By leveraging domain-specific knowledge, the model significantly improves **accuracy in symptom-to-specialist mapping**, aligning with Medic AI’s **specialist recommendation module**.  
 
 ### **C. Visual Emergency Reporting**  
 
 #### **ERVQA: A Dataset to Benchmark the Readiness of Large Vision Language Models in Hospital Environments**  
-- **Authors:** Ray, S., Gupta, K., Kundu, S., Dr. Payal Arvind Kasat, Somak Aditya, & Goyal, P.  
-- **Citations:** N/A  
-- **Year:** 2024  
+- **Authors:** Ray, S., Gupta, K., Kundu, S., Dr. Payal Arvind Kasat, Somak Aditya, & Goyal, P.   
+- **Year:** 2024
 - **Summary:** ERVQA introduces a **benchmark dataset for evaluating vision-language models in medical emergency scenarios**. The dataset enables **AI-driven emergency scene understanding**, validating Medic AI’s **image captioning and accident severity classification model**.  
 
 #### **Benchmarking Large Language Models on Communicative Medical Coaching: A Dataset and a Novel System**  
-- **Authors:** Huang, H., Wang, S., Liu, H., Wang, H., & Wang, Y.  
-- **Citations:** N/A  
-- **Year:** 2024  
+- **Authors:** Huang, H., Wang, S., Liu, H., Wang, H., & Wang, Y.   
+- **Year:** 2024
 - **Summary:** This paper evaluates **large language models in real-time medical interactions**, highlighting their potential in **AI-assisted emergency response**. The study underscores how **GPT-based multimodal AI models** can generate **accurate emergency scene descriptions**, contributing to **Medic AI’s emergency assistance module**.  
 
 #### **MUMOSA: Interactive Dashboard for Multi-Modal Situation Awareness**  
-- **Authors:** Lukin, S. M., Bowser, S., Suchocki, R., Summers-Stay, D., Ferraro, F., Matuszek, C., & Voss, C.  
-- **Citations:** N/A  
+- **Authors:** Lukin, S. M., Bowser, S., Suchocki, R., Summers-Stay, D., Ferraro, F., Matuszek, C., & Voss, C.
 - **Year:** 2024  
 - **Summary:** MUMOSA explores **multi-modal situation awareness**, showcasing the ability of **AI to generate real-time, context-aware emergency scene summaries**. This aligns with **Medic AI’s emergency dispatch feature**, where **AI-generated summaries assist first responders**.  
 
