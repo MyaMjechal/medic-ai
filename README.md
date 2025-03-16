@@ -137,6 +137,7 @@ First responders gain critical visual and contextual information, improving resp
 - **Summary:** MUMOSA explores **multi-modal situation awareness**, showcasing the ability of **AI to generate real-time, context-aware emergency scene summaries**. This aligns with **Medic AI’s emergency dispatch feature**, where **AI-generated summaries assist first responders**.  
 
 ## Methodology
+![medic_ai_proposal drawio (1)](https://github.com/user-attachments/assets/a4c068ae-b5ca-426c-bdb5-19c3d0f402b6)
 
 ### **Dataset**  
 To ensure comprehensive training and evaluation, Medic AI utilizes publicly available medical repositories and proprietary datasets. These datasets facilitate robust AI model development by covering real-world healthcare scenarios.  
