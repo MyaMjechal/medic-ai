@@ -110,9 +110,9 @@ Offers immediate, private mental health support through conversation, with memor
 
 - **Team Name**: Semantic Bard
 - **Members**:
-  - Htet Wai Yan Htut - Department of Data Sciences and Artificial Intelligence, Asian Institute of Technology
-  - Zwe Htet - Department of Data Sciences and Artificial Intelligence, Asian Institute of Technology
-  - Mya Mjechal - Department of Data Sciences and Artificial Intelligence, Asian Institute of Technology
+  - Mya Mjechal
+  - Zwe Htet
+  - Htet Wai Yan Htut
 - **Medical Advisor**: Dr. Khin Lay Phyu (M.B.,B.S)
 
 ## Project Status
