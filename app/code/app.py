@@ -240,67 +240,47 @@ def display_page(pathname):
     return home_page
 
 # ---- Scan upload callback ----
-# Show Uploaded Image Immediately
 @app.callback(
-    [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
-    Input('upload-image', 'contents'),
-    State('scan-window', 'children')
+    Output('scan-window', 'children'),  # This holds the chat window (image + text)
+    [Input('upload-image', 'contents')],
+    State('scan-window', 'children'),
+    prevent_initial_call=True
 )
-def display_uploaded_image(contents, children):
+def handle_upload_and_scan(contents, children):
     if not contents:
-        return children, False
+        return children
+
+    # 1. Display the uploaded image immediately in the chat window
     children = children or []
     children.append(
         html.Div(
             html.Img(
                 src=contents,
                 style={'maxWidth': '200px', 'borderRadius': '8px'}
-            ), 
-                className="user-msg",
-                style={'clear': 'both', 'marginTop': '1rem'}
-            )
+            ),
+            className="user-msg",
+            style={'clear': 'both', 'marginTop': '1rem'}
         )
-    return children, contents
+    )
 
-# Process Medicine Scan
-@app.callback(
-    Output('scan-result', 'children'),
-    Input('image-uploaded', 'data')
-)
-def scan_and_generate(contents):
-    if not contents:
-        return ""
-    
+    # 2. Start the scan process and get the result
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
-    
+
+    # Handle any error during the scan
     if error:
-        return html.Div(error, className="bot-msg")
+        children.append(html.Div(error, className="bot-msg"))
+        return children
 
+    # 3. Show the summary text after the image
     if drug_name and summary_text:
-        return html.Div([
-            html.Strong(f"Summary for {drug_name}:"),
-            html.Ul(summary_text)
-        ], className="bot-msg")
-    return html.Div("Could not process the scan. Please try again.", className="bot-msg")
+        children.append(
+            html.Div([
+                html.Strong(f"Summary for {drug_name}:"),
+                html.Ul(summary_text)  # Generates bullet points from the model output
+            ], className="bot-msg")
+        )
 
-# Disable Upload Button During Scan
-@app.callback(
-    Output('upload-btn', 'disabled'),
-    Input('image-uploaded', 'data')
-)
-def disable_upload_button(data):
-    return bool(data)
-
-# ---- Reset Scan (Scan Another) Callback ----
-@app.callback(
-    [Output('scan-result', 'children'), Output('image-uploaded', 'data')],
-    Input('scan-another-btn', 'n_clicks'),
-    State('scan-result', 'children')
-)
-def reset_scan(n_clicks, children):
-    if n_clicks:
-        return "", False
-    return children, None
+    return children
 
 # ---- Therapy chat callback  ----
 @app.callback(
