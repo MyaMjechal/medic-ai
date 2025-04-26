@@ -1,12 +1,103 @@
 import dash
+import os
 import asyncio
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
-from emotion_chat_2 import EmotionChatbot
+from emotion_chat import EmotionChatbot
 from medicine_scanning import scan_medicine
+from transformers import pipeline as hf_pipeline
+import subprocess
+import torch
+import platform
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
 
-chatbot = EmotionChatbot()
+# GPU
+def get_available_gpus():
+    """
+    Get the GPU with the most available memory.
+    Returns:
+        int: The GPU index with the most available memory.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"nvidia-smi error: {result.stderr}")
+
+        free_memory = [int(x) for x in result.stdout.strip().split("\n")]
+        
+        # Find the GPU with the most free memory, if there are ties, choose the first one
+        max_memory = max(free_memory)
+        best_gpu = free_memory.index(max_memory)
+        return best_gpu
+    except Exception as e:
+        print(f"Error selecting GPU: {e}")
+        return None
+
+# Select the GPU with the most available memory
+best_gpu = get_available_gpus()
+if best_gpu is not None:
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(best_gpu)
+    print(f"Using GPU {best_gpu} with the most available memory.")
+else:
+    print("No GPU selected. Using default settings.")
+
+# Check if CUDA is available and print the selected GPU
+if torch.cuda.is_available():
+    print(f"Selected GPU: {torch.cuda.current_device()} - {torch.cuda.get_device_name(torch.cuda.current_device())}")
+else:
+    print("CUDA is not available. Running on CPU.")
+
+# Hugging Face
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+
+print("Loading Mistral 7B starts...")
+use_quantization = platform.system() != "Windows"
+
+model_id = "mistralai/Mistral-7B-Instruct-v0.2"
+tokenizer = AutoTokenizer.from_pretrained(model_id, token=HUGGINGFACE_TOKEN)
+
+if torch.cuda.is_available():
+    print("CUDA available, loading model on GPU...")
+    try:
+        if use_quantization:
+            from transformers import BitsAndBytesConfig
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16
+            )
+            model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                quantization_config=bnb_config,
+                token=HUGGINGFACE_TOKEN,
+                device_map="auto"
+            )
+            print("Model loaded with 4-bit quantization.")
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16,
+                token=HUGGINGFACE_TOKEN,
+                device_map="auto"
+            )
+            print("Model loaded in float16 on GPU.")
+    except Exception as e:
+        print(f"Error loading model on GPU: {e}. Falling back to CPU.")
+        model = AutoModelForCausalLM.from_pretrained(model_id, token=HUGGINGFACE_TOKEN)
+        print("Model loaded on CPU.")
+else:
+    print("CUDA not available, loading model on CPU...")
+    model = AutoModelForCausalLM.from_pretrained(model_id, token=HUGGINGFACE_TOKEN)
+    print("Model loaded on CPU.")
+
+chatbot = EmotionChatbot(model, tokenizer)
 
 # Use the Cerulean theme for vibrant blue accents
 app = dash.Dash(
@@ -179,7 +270,7 @@ def display_uploaded_image(contents, children):
 def scan_and_generate(contents):
     if not contents:
         return ""
-    drug_name, summary_text, error = scan_medicine(contents)
+    drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
     if error:
         return html.Div(error, className="bot-msg")
     return html.Div([

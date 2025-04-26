@@ -3,10 +3,10 @@ import base64
 import numpy as np
 import pandas as pd
 import faiss
-from PIL import Image
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline as hf_pipeline
 from google.cloud import vision
+import torch
 
 
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
@@ -114,17 +114,26 @@ Toxicity: {info.get('toxicity', 'N/A')}
 Summarize this for a general audience.
 """
 
-def generate_summary(info):
+def generate_summary(info, model, tokenizer):
     print("[Model] Generating summary using Mistral 7B...")
-    generator = load_generator_once()
     prompt = build_prompt(info)
-    output = generator(prompt, max_new_tokens=250)[0]["generated_text"]
+    input_ids = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        output = model.generate(
+            **input_ids,
+            max_new_tokens=250,
+            temperature=0.7,
+            top_p=0.9,
+            do_sample=True,
+            pad_token_id=tokenizer.eos_token_id,
+            eos_token_id=tokenizer.eos_token_id
+        )
+    output = tokenizer.decode(output[0], skip_special_tokens=True)
     print("[Model] Summary generation complete.")
-    return output
 
 # ---- Main Scan Function ----
 
-def scan_medicine(contents):
+def scan_medicine(contents, model, tokenizer):
     print("[Scan] Starting full medicine scan process...")
     try:
         image_bytes = decode_base64_image(contents)
@@ -135,7 +144,7 @@ def scan_medicine(contents):
 
         if drug_name:
             drug_info = retrieve_drug_info(drug_name)
-            summary_text = generate_summary(drug_info)
+            summary_text = generate_summary(drug_info, model, tokenizer)
             print("[Scan] Full scan process completed successfully.")
             return drug_name, summary_text, None
         else:
