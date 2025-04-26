@@ -3,7 +3,7 @@ import asyncio
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 from emotion_chat_2 import EmotionChatbot
-from code.medicine_scanning import scan_medicine
+from medicine_scanning import scan_medicine
 
 
 chatbot = EmotionChatbot()
