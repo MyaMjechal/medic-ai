@@ -239,59 +239,68 @@ def display_page(pathname):
         return therapy_page
     return home_page
 
-# ---- Scan Upload / Display Uploaded Image / Scan Another ----
+# ---- Scan upload callback ----
+# Show Uploaded Image Immediately
 @app.callback(
-    [Output('scan-window', 'children'),
-     Output('scan-result', 'children'),
-     Output('upload-btn', 'disabled')],
-    [Input('upload-image', 'contents')],
-    [State('scan-window', 'children')]
+    [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
+    Input('upload-image', 'contents'),
+    State('scan-window', 'children')
 )
-def handle_upload_and_scan(uploaded_contents, current_children):
-    # If there's no uploaded content, don't update
-    if not uploaded_contents:
-        raise dash.exceptions.PreventUpdate
-
-    # Initialize the response structure (keep existing chat messages)
-    current_children = current_children or []
-
-    # First, show uploaded image
-    current_children.append(
+def display_uploaded_image(contents, children):
+    if not contents:
+        return children, False
+    children = children or []
+    children.append(
         html.Div(
             html.Img(
-                src=uploaded_contents,
+                src=contents,
                 style={'maxWidth': '200px', 'borderRadius': '8px'}
-            ),
-            className="user-msg",
-            style={'clear': 'both', 'marginTop': '1rem'}
+            ), 
+                className="user-msg",
+                style={'clear': 'both', 'marginTop': '1rem'}
+            )
         )
-    )
+    return children, contents
 
-    # Show a temporary loading message (Scan in progress)
-    scan_result = html.Div("Scanning...", className="bot-msg", style={'marginTop': '1rem'})
-
-    # Disable the upload button while scanning
-    disabled = True
-
-    # Perform the scanning process (get drug name, summary, and error)
-    drug_name, summary_text, error = scan_medicine(uploaded_contents, model, tokenizer)
-
+# Process Medicine Scan
+@app.callback(
+    Output('scan-result', 'children'),
+    Input('image-uploaded', 'data')
+)
+def scan_and_generate(contents):
+    if not contents:
+        return ""
+    
+    drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
+    
     if error:
-        scan_result = html.Div(error, className="bot-msg", style={'marginTop': '1rem'})
-    else:
-        scan_result = html.Div([
+        return html.Div(error, className="bot-msg")
+
+    if drug_name and summary_text:
+        return html.Div([
             html.Strong(f"Summary for {drug_name}:"),
-            html.Ul([  # Show the summary text in a list format
-                html.Li(f"Use: {summary_text['use']}"),
-                html.Li(f"Dosage: {summary_text['dosage']}"),
-                html.Li(f"Warnings: {summary_text['warnings']}")
-            ])
-        ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
+            html.Ul(summary_text)
+        ], className="bot-msg")
+    return html.Div("Could not process the scan. Please try again.", className="bot-msg")
 
-    # Re-enable the upload button once the scan is complete
-    disabled = False
+# Disable Upload Button During Scan
+@app.callback(
+    Output('upload-btn', 'disabled'),
+    Input('image-uploaded', 'data')
+)
+def disable_upload_button(data):
+    return bool(data)
 
-    return current_children, scan_result, disabled
+# ---- Reset Scan (Scan Another) Callback ----
+@app.callback(
+    [Output('scan-result', 'children'), Output('image-uploaded', 'data')],
+    Input('scan-another-btn', 'n_clicks'),
+    State('scan-result', 'children')
+)
+def reset_scan(n_clicks, children):
+    if n_clicks:
+        return "", False
+    return children, None
 
 # ---- Therapy chat callback  ----
 @app.callback(
