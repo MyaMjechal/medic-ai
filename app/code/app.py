@@ -246,28 +246,42 @@ def display_page(pathname):
     Input('upload-image', 'contents'),
     State('scan-window', 'children')
 )
-def scan_and_generate(contents, children):
+def handle_upload_and_scan(contents, children):
     if not contents:
-        return children, "Please upload an image to begin the scan."
+        return children, ""
 
-    # Step 1: Show uploaded image first
+    # Show the uploaded image
     children = children or []
     children.append(html.Div(
-        html.Img(src=contents, style={'maxWidth': '200px', 'borderRadius': '8px'}),
-        className="user-msg", style={'clear': 'both', 'marginTop': '1rem'}
-    ))
+        html.Img(
+            src=contents,
+            style={'maxWidth': '200px', 'borderRadius': '8px'}
+        ),
+        className="user-msg")
+    )
 
-    # Step 2: Process the medicine scan
-    drug_name, summary, error = scan_medicine(contents, model, tokenizer)
+    # Extract the image data (base64 format)
+    image_data = contents.split(",")[1]
+
+    # Process the scan and generate summary
+    drug_name, summary, error = scan_medicine(image_data, model, tokenizer)
 
     if error:
         return children, html.Div(error, className="bot-msg")
 
-    # Step 3: Display generated summary in bullet points
-    summary_bullets = parse_summary(summary)
-
-    # Return updated children with uploaded image and the Q&A summary format
-    return children, html.Div(summary_bullets, className="bot-msg")
+    if drug_name:
+        # Format the summary into bullet points for easy reading
+        summary_bullets = [
+            html.Li(f"Name: {summary['name']}"),
+            html.Li(f"Description: {summary['description']}"),
+            html.Li(f"Indication: {summary['indication']}"),
+            html.Li(f"Mechanism of Action: {summary['mechanism_of_action']}"),
+            html.Li(f"Toxicity: {summary['toxicity']}")
+        ]
+        summary_text = html.Div(summary_bullets, className="bot-msg")
+        return children, summary_text
+    else:
+        return children, html.Div("Could not detect a matching medicine.", className="bot-msg")
 
 # ---- Therapy chat callback  ----
 @app.callback(

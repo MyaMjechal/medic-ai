@@ -15,10 +15,10 @@ HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-csv_path = os.path.join(DATA_DIR, "drugbank_clean.csv")
-drug_info_index_path = os.path.join(DATA_DIR, "drug_index.faiss")
-drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings.npy")
-drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index.faiss")
+csv_path = os.path.join(DATA_DIR, "cleaned_drugbank_data.csv")
+drug_info_index_path = os.path.join(DATA_DIR, "drug_info_index_v2.faiss")
+drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings_v2.npy")
+drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index_v2.faiss")
 
 # ---- Load Light Resources at Startup ----
 
