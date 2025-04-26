@@ -20,24 +20,42 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 csv_path = os.path.join(DATA_DIR, "drugbank_clean.csv")
 index_path = os.path.join(DATA_DIR, "drug_index.faiss")
 
-# ---- Light Resources Loaded at Startup ----
+# ---- Load Light Resources at Startup ----
 # Load Dataset
-print("Loading DrugBank data...")
+print("[Scan] Loading DrugBank data...")
 df = pd.read_csv(csv_path)
 
 # Load FAISS Index
-print("Loading FAISS index...")
+print("[Scan] Loading FAISS index...")
 index = faiss.read_index(index_path)
 
 # Load Embedding Model (SentenceTransformer)
-print("Loading SentenceTransformer (MiniLM-L6-v2)...")
+print("[Scan] Loading SentenceTransformer (MiniLM-L6-v2)...")
 embedder = SentenceTransformer('all-MiniLM-L6-v2', token=HUGGINGFACE_TOKEN)
 
 # Load Google Vision API Client
-print("Initializing Google Vision Client...")
+print("[Scan] Initializing Google Vision Client...")
 vision_client = vision.ImageAnnotatorClient()
 
-print("Medicine scanning backend ready (model lazy loading).")
+print("[Scan] Medicine scanning backend ready (lazy loading Mistral).")
+
+# ---- Model Caching ----
+_cached_generator = None
+
+def load_generator_once():
+    global _cached_generator
+    if _cached_generator is None:
+        print("[Model] Loading Mistral 7B model for the first time...")
+        _cached_generator = hf_pipeline(
+            "text-generation",
+            model="mistralai/Mistral-7B-Instruct-v0.2",
+            device=0,
+            use_auth_token=HUGGINGFACE_TOKEN
+        )
+        print("[Model] Mistral 7B model loaded and cached.")
+    else:
+        print("[Model] Reusing cached Mistral 7B model.")
+    return _cached_generator
 
 # ---- Helper Functions ----
 
@@ -50,7 +68,7 @@ def decode_base64_image(content):
 
 def ocr_google_image(image_bytes):
     """Run OCR using Google Vision API."""
-    print("[Scan] Running OCR with Google Vision API...")
+    print("[OCR] Running OCR with Google Vision API...")
     image = vision.Image(content=image_bytes)
     response = vision_client.text_detection(image=image)
     if response.text_annotations:
@@ -60,21 +78,21 @@ def ocr_google_image(image_bytes):
     return response.text_annotations[0].description if response.text_annotations else ""
 
 def find_best_drug(ocr_text, drug_names):
-    print("[Scan] Searching best matching drug name (optimized)...")
+    print("[Match] Finding best matching drug name...")
     # Clean OCR text
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-    words = clean_text.split()
-
-    candidates = []
-    if not words:
-        print("[Scan] OCR produced empty or bad text after cleaning.")
+    if not clean_text.strip():
+        print("[Match] OCR text is empty after cleaning.")
         return None
 
-    # Try to match full cleaned OCR text to known drug names first
-    match, score = process.extractOne(' '.join(words), drug_names)
-    if score > 85:
-        print(f"[Match] Full OCR best match found: {match} (Score: {score})")
+    # match full cleaned OCR text to known drug names first
+    match, score = process.extractOne(clean_text, drug_names)
+    if match and score > 85:
+        print(f"[Match] Full text matched drug: {match} (Score: {score})")
         return match
+
+    words = clean_text.split()
+    candidates = []
 
     # Fall back: Try matching individual words if needed
     for word in words:
@@ -85,7 +103,7 @@ def find_best_drug(ocr_text, drug_names):
     if candidates:
         candidates.sort(key=lambda x: x[1], reverse=True)
         best_match = candidates[0][0]
-        print(f"[Match] Fallback best word match found: {best_match}")
+        print(f"[Match] Word fallback best match: {best_match}")
         return best_match
     else:
         print("[Match] No good drug match found.")
@@ -93,7 +111,7 @@ def find_best_drug(ocr_text, drug_names):
 
 def retrieve_drug_info(drug_name):
     """Retrieve drug details from FAISS index."""
-    print(f"[Scan] Retrieving drug info for: {drug_name}")
+    print(f"[Retrieve] Retrieving drug info for: {drug_name}")
     query_emb = embedder.encode([drug_name])
     D, I = index.search(np.array(query_emb), k=1)
     print("[Retrieve] Drug info retrieved.")
@@ -115,37 +133,23 @@ Summarize this for a general audience.
 
 def generate_summary(info):
     """Load the Hugging Face model lazily, with Huggingface Token."""
-    print("[Scan] Loading Mistral 7B model from HuggingFace...")
-    generator = hf_pipeline(
-        "text-generation",
-        model="mistralai/Mistral-7B-Instruct-v0.2",
-        device=0,
-        use_auth_token=HUGGINGFACE_TOKEN
-    )
-    print("[Model] Mistral 7B loaded. Starting summary generation...")
+    print("[Model] Generating summary using Mistral 7B...")
+    generator = load_generator_once()
     prompt = build_prompt(info)
     output = generator(prompt, max_new_tokens=250)[0]["generated_text"]
-    print("[Summary] Summary generation complete.")
+    print("[Model] Summary generation complete.")
     return output
 
-# ---- Main High-Level Scan Function ----
+# ---- Main Scan ----
 
 def scan_medicine(contents):
-    """
-    Full scan pipeline:
-    1. Decode image
-    2. OCR extract text
-    3. Match to drug names
-    4. Retrieve drug info
-    5. Summarize with LLM
-    """
     print("[Scan] Starting full medicine scan process...")
     try:
         image_bytes = decode_base64_image(contents)
-
         ocr_text = ocr_google_image(image_bytes)
 
         drug_name = find_best_drug(ocr_text, df["name"].tolist())
+        print(f"[Match] Final found drug: {drug_name}")
 
         if drug_name:
             drug_info = retrieve_drug_info(drug_name)

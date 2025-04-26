@@ -94,11 +94,10 @@ scan_page = dbc.Container([
             )
         ]
     ),
-
     # Upload button (no text input)
     dcc.Upload(
         id='upload-image',
-        children=html.Button("Click to upload image", className="send-btn"),
+        children=html.Button("Click to upload image", id="upload-btn", className="send-btn"),
         accept="image/*",
         multiple=False,
         className="mt-2"
@@ -150,7 +149,7 @@ def display_page(pathname):
     return home_page
 
 # ---- Scan upload callback ----
-# ---- Callback 1: Show uploaded image immediately ----
+# Show Uploaded Image Immediately
 @app.callback(
     [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
     Input('upload-image', 'contents'),
@@ -159,26 +158,20 @@ def display_page(pathname):
 def display_uploaded_image(contents, children):
     if not contents:
         return children, False
-
-    print("[Dash] Image uploaded, displaying...")
-
     children = children or []
-
-    # Show user-uploaded image immediately
     children.append(
         html.Div(
             html.Img(
                 src=contents,
                 style={'maxWidth': '200px', 'borderRadius': '8px'}
-            ),
-            className="user-msg",
-            style={'clear': 'both', 'marginTop': '1rem'}
+            ), 
+                className="user-msg",
+                style={'clear': 'both', 'marginTop': '1rem'}
+            )
         )
-    )
+    return children, contents
 
-    return children, contents  # pass contents to second callback
-
-# ---- Callback 2: Process uploaded image and generate AI reply ----
+# Process Medicine Scan
 @app.callback(
     Output('scan-result', 'children'),
     Input('image-uploaded', 'data')
@@ -186,28 +179,21 @@ def display_uploaded_image(contents, children):
 def scan_and_generate(contents):
     if not contents:
         return ""
-
-    print("[Dash] Starting backend scan for uploaded image...")
-
     drug_name, summary_text, error = scan_medicine(contents)
-
     if error:
-        print(f"[Dash] Scan error: {error}")
-        return html.Div(
-            error,
-            className="bot-msg",
-            style={'clear': 'both', 'marginTop': '0.5rem'}
-        )
-
-    print(f"[Dash] Scan success. Found: {drug_name}")
-
+        return html.Div(error, className="bot-msg")
     return html.Div([
         html.Strong(f"Summary for {drug_name}:"),
         html.P(summary_text)
-    ],
-    className="bot-msg",
-    style={'clear': 'both', 'marginTop': '0.5rem'}
-    )
+    ], className="bot-msg")
+
+# Disable Upload Button During Scan
+@app.callback(
+    Output('upload-btn', 'disabled'),
+    Input('image-uploaded', 'data')
+)
+def disable_upload_button(data):
+    return bool(data)
 
 # ---- Therapy chat callback  ----
 @app.callback(
