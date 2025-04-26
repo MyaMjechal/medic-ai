@@ -241,33 +241,50 @@ def display_page(pathname):
 
 # ---- Scan Upload and Result Callbacks ----
 
-# Step 1. Show uploaded image immediately
+# Step 1+3. Show uploaded image immediately OR Reset after "Scan Another"
 @app.callback(
     [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
-    Input('upload-image', 'contents'),
-    State('scan-window', 'children')
+    [Input('upload-image', 'contents'),
+     Input('scan-another-btn', 'n_clicks')],
+    [State('scan-window', 'children')]
 )
-def display_uploaded_image(contents, children):
-    if not contents:
-        return children, None
+def update_scan_window(uploaded_contents, scan_another_clicks, current_children):
+    ctx = dash.callback_context
 
-    children = children or []
-    children.append(
-        html.Div(
-            html.Img(
-                src=contents,
-                style={'maxWidth': '200px', 'borderRadius': '8px'}
-            ),
-            className="user-msg",
-            style={'clear': 'both', 'marginTop': '1rem'}
+    if not ctx.triggered:
+        raise dash.exceptions.PreventUpdate
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'upload-image' and uploaded_contents:
+        # If new image uploaded
+        current_children = current_children or []
+        current_children.append(
+            html.Div(
+                html.Img(
+                    src=uploaded_contents,
+                    style={'maxWidth': '200px', 'borderRadius': '8px'}
+                ),
+                className="user-msg",
+                style={'clear': 'both', 'marginTop': '1rem'}
+            )
         )
-    )
-    return children, contents
+        return current_children, uploaded_contents
+
+    elif trigger_id == 'scan-another-btn':
+        # If "Scan Another" clicked
+        return [html.Div(
+            "Please upload a medicine image to begin.",
+            className="bot-msg"
+        )], None
+
+    raise dash.exceptions.PreventUpdate
 
 # Step 2. Scan medicine and generate result
 @app.callback(
     [Output('scan-result', 'children'), Output('image-uploaded', 'clear_data')],
-    Input('image-uploaded', 'data')
+    Input('image-uploaded', 'data'),
+    prevent_initial_call=True
 )
 def scan_and_generate(contents):
     if not contents:
@@ -278,7 +295,6 @@ def scan_and_generate(contents):
     if error:
         return html.Div(error, className="bot-msg"), True
 
-    # 🆕 Add a "Scan Another" button after showing the summary
     return html.Div([
         html.Strong(f"Summary for {drug_name}:"),
         html.Ul(summary_bullets),
@@ -291,20 +307,6 @@ def scan_and_generate(contents):
             style={"marginTop": "1rem"}
         )
     ]), True
-
-# Step 3. Reset Upload after clicking "Scan Another"
-@app.callback(
-    Output('scan-window', 'children'),
-    Input('scan-another-btn', 'n_clicks'),
-    prevent_initial_call=True
-)
-def reset_scan(n_clicks):
-    if n_clicks:
-        return [html.Div(
-            "Please upload a medicine image to begin.",
-            className="bot-msg"
-        )]
-    return dash.no_update
 
 # Step 4. Disable Upload Button while scanning
 @app.callback(
