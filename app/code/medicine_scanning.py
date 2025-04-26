@@ -4,40 +4,43 @@ import numpy as np
 import pandas as pd
 import faiss
 from PIL import Image
-from fuzzywuzzy import process
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline as hf_pipeline
 from google.cloud import vision
 
 
-# Huggingface Token from Environment
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
 
-# Path setup
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 csv_path = os.path.join(DATA_DIR, "drugbank_clean.csv")
-index_path = os.path.join(DATA_DIR, "drug_index.faiss")
+drug_info_index_path = os.path.join(DATA_DIR, "drug_index.faiss")
+drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings.npy")
+drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index.faiss")
 
 # ---- Load Light Resources at Startup ----
-# Load Dataset
-print("[Scan] Loading DrugBank data...")
+
+print("[Scan] Loading DrugBank dataset...")
 df = pd.read_csv(csv_path)
+drug_names = df["name"].fillna("").tolist()
 
-# Load FAISS Index
-print("[Scan] Loading FAISS index...")
-index = faiss.read_index(index_path)
+print("[Scan] Loading drug info FAISS index...")
+drug_info_index = faiss.read_index(drug_info_index_path)
 
-# Load Embedding Model (SentenceTransformer)
-print("[Scan] Loading SentenceTransformer (MiniLM-L6-v2)...")
+print("[Scan] Loading precomputed drug name embeddings...")
+drug_name_embeddings = np.load(drug_name_embeddings_path)
+
+print("[Scan] Loading FAISS index for drug names...")
+drug_name_index = faiss.read_index(drug_name_index_path)
+
+print("[Scan] Loading SentenceTransformer (MiniLM)...")
 embedder = SentenceTransformer('all-MiniLM-L6-v2', token=HUGGINGFACE_TOKEN)
 
-# Load Google Vision API Client
-print("[Scan] Initializing Google Vision Client...")
+print("[Scan] Initializing Google Vision API client...")
 vision_client = vision.ImageAnnotatorClient()
 
-print("[Scan] Medicine scanning backend ready (lazy loading Mistral).")
+print("[Scan] Precomputed drug name FAISS index ready.")
 
 # ---- Model Caching ----
 _cached_generator = None
@@ -60,65 +63,45 @@ def load_generator_once():
 # ---- Helper Functions ----
 
 def decode_base64_image(content):
-    """Decode base64-encoded uploaded image."""
     print("[Scan] Decoding uploaded base64 image...")
     header, encoded = content.split(",", 1)
     binary_data = base64.b64decode(encoded)
     return binary_data
 
 def ocr_google_image(image_bytes):
-    """Run OCR using Google Vision API."""
-    print("[OCR] Running OCR with Google Vision API...")
+    print("[OCR] Running OCR using Google Vision API...")
     image = vision.Image(content=image_bytes)
     response = vision_client.text_detection(image=image)
     if response.text_annotations:
-        print("[OCR] Text detected successfully.")
+        print("[OCR] OCR text detected.")
     else:
         print("[OCR] No text detected.")
     return response.text_annotations[0].description if response.text_annotations else ""
 
-def find_best_drug(ocr_text, drug_names):
-    print("[Match] Finding best matching drug name...")
-    # Clean OCR text
+def find_best_drug(ocr_text):
+    print("[Match] Finding best matching drug name (FAISS search)...")
+    
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
     if not clean_text.strip():
         print("[Match] OCR text is empty after cleaning.")
         return None
 
-    # match full cleaned OCR text to known drug names first
-    match, score = process.extractOne(clean_text, drug_names)
-    if match and score > 85:
-        print(f"[Match] Full text matched drug: {match} (Score: {score})")
-        return match
+    ocr_embedding = embedder.encode([clean_text])
+    D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
+    best_idx = I[0][0]
+    best_match = drug_names[best_idx]
 
-    words = clean_text.split()
-    candidates = []
-
-    # Fall back: Try matching individual words if needed
-    for word in words:
-        match, score = process.extractOne(word, drug_names)
-        if score > 85:
-            candidates.append((match, score))
-
-    if candidates:
-        candidates.sort(key=lambda x: x[1], reverse=True)
-        best_match = candidates[0][0]
-        print(f"[Match] Word fallback best match: {best_match}")
-        return best_match
-    else:
-        print("[Match] No good drug match found.")
-        return None
+    print(f"[Match] FAISS best match found: {best_match}")
+    return best_match
 
 def retrieve_drug_info(drug_name):
-    """Retrieve drug details from FAISS index."""
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
     query_emb = embedder.encode([drug_name])
-    D, I = index.search(np.array(query_emb), k=1)
+    D, I = drug_info_index.search(np.array(query_emb), k=1)
     print("[Retrieve] Drug info retrieved.")
     return df.iloc[I[0][0]].to_dict()
 
 def build_prompt(info):
-    """Build prompt for the LLM summarization."""
     return f"""
 You are a medical assistant. Summarize the following drug information.
 
@@ -132,7 +115,6 @@ Summarize this for a general audience.
 """
 
 def generate_summary(info):
-    """Load the Hugging Face model lazily, with Huggingface Token."""
     print("[Model] Generating summary using Mistral 7B...")
     generator = load_generator_once()
     prompt = build_prompt(info)
@@ -140,7 +122,7 @@ def generate_summary(info):
     print("[Model] Summary generation complete.")
     return output
 
-# ---- Main Scan ----
+# ---- Main Scan Function ----
 
 def scan_medicine(contents):
     print("[Scan] Starting full medicine scan process...")
@@ -148,8 +130,8 @@ def scan_medicine(contents):
         image_bytes = decode_base64_image(contents)
         ocr_text = ocr_google_image(image_bytes)
 
-        drug_name = find_best_drug(ocr_text, df["name"].tolist())
-        print(f"[Match] Final found drug: {drug_name}")
+        drug_name = find_best_drug(ocr_text)
+        print(f"[Match] Final matched drug: {drug_name}")
 
         if drug_name:
             drug_info = retrieve_drug_info(drug_name)
