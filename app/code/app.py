@@ -1,6 +1,11 @@
 import dash
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
+from emotion_chat_2 import EmotionChatbot
+import asyncio
+
+
+chatbot = EmotionChatbot()
 
 # Use the Cerulean theme for vibrant blue accents
 app = dash.Dash(
@@ -184,7 +189,8 @@ def update_therapy(n, msg, children):
     if n and msg:
         children = children or []
         children.append(html.Div(msg, className="user-msg"))
-        children.append(html.Div("[AI response here]", className="bot-msg"))
+        ai_response = asyncio.run(chatbot.chat(msg))
+        children.append(html.Div(ai_response, className="bot-msg"))
         return children, ""
     return children, ""
 
