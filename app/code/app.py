@@ -4,7 +4,7 @@ import asyncio
 from dash import html, dcc, Input, Output, State, ctx, ALL
 import dash_bootstrap_components as dbc
 from emotion_chat import EmotionChatbot
-from medicine_scanning import scan_medicine
+from medicine_scanning import scan_medicine, parse_summary
 from transformers import pipeline as hf_pipeline
 import subprocess
 import torch
