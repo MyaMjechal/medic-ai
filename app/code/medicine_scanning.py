@@ -234,12 +234,12 @@ def scan_medicine(contents, model, tokenizer):
             summary_text = generate_summary(drug_info, model, tokenizer)
 
             if summary_text:
-                bullets = split_into_bullets(summary_text)
+                bullets = parse_summary(summary_text)  # This returns the list of HTML Li elements
             else:
                 bullets = fallback_bullets(drug_info)
 
             print("[Scan] Full scan process completed successfully.")
-            return drug_name, bullets, None
+            return drug_name, bullets, None  # Return the list of bullets here
         else:
             print("[Scan] No drug name matched.")
             return None, None, "Could not detect a matching medicine name."

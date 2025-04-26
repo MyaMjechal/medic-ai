@@ -267,15 +267,8 @@ def handle_upload_and_scan(contents, children):
         return children, html.Div(error, className="bot-msg")
 
     if drug_name:
-        # Format the summary into bullet points for easy reading
-        summary_bullets = [
-            html.Li(f"Name: {summary['name']}"),
-            html.Li(f"Description: {summary['description']}"),
-            html.Li(f"Indication: {summary['indication']}"),
-            html.Li(f"Mechanism of Action: {summary['mechanism_of_action']}"),
-            html.Li(f"Toxicity: {summary['toxicity']}")
-        ]
-        summary_text = html.Div(summary_bullets, className="bot-msg")
+        # Directly use the returned list of HTML Li elements for summary
+        summary_text = html.Div(summary, className="bot-msg")  # summary is already a list of Li elements
         return children, summary_text
     else:
         return children, html.Div("Could not detect a matching medicine.", className="bot-msg")
