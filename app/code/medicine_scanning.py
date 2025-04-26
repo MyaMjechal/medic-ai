@@ -178,6 +178,7 @@ def parse_summary(summary_text):
     # Split the summary by lines
     lines = summary_text.split("\n")
 
+    # Initialize a dictionary to store the parsed data
     qna = {
         "use": "",
         "dosage": "",
@@ -185,17 +186,40 @@ def parse_summary(summary_text):
         "precautions": ""
     }
 
-    for line in lines:
-        if line.lower().startswith("what is this medicine for?"):
-            qna["use"] = line.split("Answer:")[-1].strip()
-        elif line.lower().startswith("how is it used?"):
-            qna["dosage"] = line.split("Answer:")[-1].strip()
-        elif line.lower().startswith("what are the common side effects?"):
-            qna["side_effects"] = line.split("Answer:")[-1].strip()
-        elif line.lower().startswith("are there any important precautions or warnings for patients?"):
-            qna["precautions"] = line.split("Answer:")[-1].strip()
+    current_question = None
+    current_answer = []
 
-    # Return structured Q&A as HTML list items
+    # Iterate through each line to find questions and their corresponding answers
+    for line in lines:
+        line = line.strip()
+        if line.lower().startswith("what is this medicine for?"):
+            if current_question and current_answer:
+                qna[current_question] = " ".join(current_answer).strip()
+            current_question = "use"
+            current_answer = [line.split("Answer:")[-1].strip()]
+        elif line.lower().startswith("how is it used?"):
+            if current_question and current_answer:
+                qna[current_question] = " ".join(current_answer).strip()
+            current_question = "dosage"
+            current_answer = [line.split("Answer:")[-1].strip()]
+        elif line.lower().startswith("what are the common side effects?"):
+            if current_question and current_answer:
+                qna[current_question] = " ".join(current_answer).strip()
+            current_question = "side_effects"
+            current_answer = [line.split("Answer:")[-1].strip()]
+        elif line.lower().startswith("are there any important precautions or warnings for patients?"):
+            if current_question and current_answer:
+                qna[current_question] = " ".join(current_answer).strip()
+            current_question = "precautions"
+            current_answer = [line.split("Answer:")[-1].strip()]
+        elif current_question:  # If we're in an answer section, accumulate the lines
+            current_answer.append(line)
+
+    # Ensure the last question's answer is added
+    if current_question and current_answer:
+        qna[current_question] = " ".join(current_answer).strip()
+
+    # Ensure to return structured data for Q&A, formatted into HTML list items
     return [
         html.Li(f"Use: {qna['use']}"),
         html.Li(f"Dosage: {qna['dosage']}"),
