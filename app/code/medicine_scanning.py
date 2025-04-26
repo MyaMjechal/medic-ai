@@ -7,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 from transformers import pipeline as hf_pipeline
 from google.cloud import vision
 import torch
+from dash import html
 
 
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
@@ -118,6 +119,7 @@ def generate_summary(info, model, tokenizer):
     print("[Model] Generating summary using Mistral 7B...")
     prompt = build_prompt(info)
     input_ids = tokenizer(prompt, return_tensors="pt").to(model.device)
+
     with torch.no_grad():
         output = model.generate(
             **input_ids,
@@ -128,9 +130,41 @@ def generate_summary(info, model, tokenizer):
             pad_token_id=tokenizer.eos_token_id,
             eos_token_id=tokenizer.eos_token_id
         )
-    output = tokenizer.decode(output[0], skip_special_tokens=True)
+
+    # Correct slicing
+    generated_tokens = output[0][input_ids["input_ids"].shape[1]:]
+    output_text = tokenizer.decode(generated_tokens, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
     print("[Model] Summary generation complete.")
-    return output
+    return output_text.strip()
+
+
+def split_into_bullets(summary_text):
+    """Split the model summary text into bullet points."""
+    print("[Postprocess] Splitting model summary into bullets...")
+    lines = summary_text.split('\n')
+    bullets = []
+
+    for line in lines:
+        line = line.strip()
+        if line and len(line) > 5:
+            bullets.append(html.Li(line))
+
+    return bullets
+
+def fallback_bullets(info):
+    """Fallback to building bullet points manually from info fields."""
+    print("[Postprocess] Fallback: Building bullets manually...")
+    bullets = []
+    if info.get("description"):
+        bullets.append(html.Li(f"Description: {info['description']}"))
+    if info.get("indication"):
+        bullets.append(html.Li(f"Indication: {info['indication']}"))
+    if info.get("mechanism_of_action"):
+        bullets.append(html.Li(f"Mechanism: {info['mechanism_of_action']}"))
+    if info.get("toxicity"):
+        bullets.append(html.Li(f"Toxicity: {info['toxicity']}"))
+    return bullets
 
 # ---- Main Scan Function ----
 
@@ -146,8 +180,14 @@ def scan_medicine(contents, model, tokenizer):
         if drug_name:
             drug_info = retrieve_drug_info(drug_name)
             summary_text = generate_summary(drug_info, model, tokenizer)
+
+            if summary_text:
+                bullets = split_into_bullets(summary_text)
+            else:
+                bullets = fallback_bullets(drug_info)
+
             print("[Scan] Full scan process completed successfully.")
-            return drug_name, summary_text, None
+            return drug_name, bullets, None
         else:
             print("[Scan] No drug name matched.")
             return None, None, "Could not detect a matching medicine name."
