@@ -240,21 +240,20 @@ def display_page(pathname):
     return home_page
 
 # ---- Scan Upload / Display Uploaded Image / Scan Another ----
-
-# Show Uploaded Image + Control Upload Button
 @app.callback(
-    [Output('scan-window', 'children'), 
-     Output('image-uploaded', 'data'),
+    [Output('scan-window', 'children'),
+     Output('scan-result', 'children'),
      Output('upload-btn', 'disabled')],
-    Input('upload-image', 'contents'),
-    State('scan-window', 'children')
+    [Input('upload-image', 'contents')],
+    [State('scan-window', 'children')]
 )
-def update_scan_window(uploaded_contents, current_children):
+def handle_upload_and_scan(uploaded_contents, current_children):
     current_children = current_children or []
 
     if not uploaded_contents:
         raise dash.exceptions.PreventUpdate
 
+    # Always first show uploaded image
     current_children.append(
         html.Div(
             html.Img(
@@ -266,30 +265,29 @@ def update_scan_window(uploaded_contents, current_children):
         )
     )
 
-    # Disable Upload button after user uploads
-    return current_children, uploaded_contents, True
+    # Immediately show loading spinner while scanning
+    scan_result = html.Div("Scanning...", className="bot-msg", style={'marginTop': '1rem'})
 
-# Perform Medicine Scan and Show Result
-@app.callback(
-    [Output('scan-result', 'children'),
-     Output('upload-btn', 'disabled')],
-    Input('image-uploaded', 'data')
-)
-def scan_and_generate(contents):
-    if not contents:
-        raise dash.exceptions.PreventUpdate
+    # Disable upload button while scanning
+    disabled = True
 
-    drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
+    # Perform scanning
+    drug_name, summary_text, error = scan_medicine(uploaded_contents, model, tokenizer)
 
     if error:
-        return html.Div(error, className="bot-msg"), False  # Enable button again if error
+        scan_result = html.Div(error, className="bot-msg", style={'marginTop': '1rem'})
+    else:
+        scan_result = html.Div([
+            html.Div([
+                html.Strong(f"Summary for {drug_name}:"),
+                html.P(summary_text)
+            ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
+        ])
 
-    return html.Div([
-        html.Div([
-            html.Strong(f"Summary for {drug_name}:"),
-            html.P(summary_text)
-        ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
-    ]), False  # Enable Upload button again after finish
+    # Enable button again after scanning
+    disabled = False
+
+    return current_children, scan_result, disabled
 
 # ---- Therapy chat callback  ----
 @app.callback(
