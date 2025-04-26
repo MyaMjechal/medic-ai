@@ -260,11 +260,8 @@ def handle_upload_and_scan(contents, children):
         className="user-msg")
     )
 
-    # Extract the image data (base64 format)
-    image_data = contents.split(",")[1]
-
     # Process the scan and generate summary
-    drug_name, summary, error = scan_medicine(image_data, model, tokenizer)
+    drug_name, summary, error = scan_medicine(contents, model, tokenizer)
 
     if error:
         return children, html.Div(error, className="bot-msg")
