@@ -10,6 +10,7 @@ import asyncio
 import aiosqlite
 from typing import List, Dict
 from langchain_core.messages import HumanMessage, AIMessage
+from transformers import pipeline
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
