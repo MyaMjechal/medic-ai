@@ -241,37 +241,46 @@ def display_page(pathname):
 
 # ---- Scan upload callback ----
 @app.callback(
-    Output('scan-window', 'children'),
-    Output('scan-result', 'children'),
-    Input('upload-image', 'contents'),
-    State('scan-window', 'children')
+    Output('scan-window', 'children'),  # This holds the chat window (image + text)
+    [Input('upload-image', 'contents')],
+    State('scan-window', 'children'),
+    prevent_initial_call=True
 )
 def handle_upload_and_scan(contents, children):
     if not contents:
-        return children, ""
+        return children
 
-    # Show the uploaded image
+    # 1. Display the uploaded image immediately in the chat window
     children = children or []
-    children.append(html.Div(
-        html.Img(
-            src=contents,
-            style={'maxWidth': '200px', 'borderRadius': '8px'}
-        ),
-        className="user-msg")
+    children.append(
+        html.Div(
+            html.Img(
+                src=contents,
+                style={'maxWidth': '200px', 'borderRadius': '8px'}
+            ),
+            className="user-msg",
+            style={'clear': 'both', 'marginTop': '1rem'}
+        )
     )
 
-    # Process the scan and generate summary
-    drug_name, summary, error = scan_medicine(contents, model, tokenizer)
+    # 2. Start the scan process and get the result
+    drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
+    # Handle any error during the scan
     if error:
-        return children, html.Div(error, className="bot-msg")
+        children.append(html.Div(error, className="bot-msg"))
+        return children
 
-    if drug_name:
-        # Directly use the returned list of HTML Li elements for summary
-        summary_text = html.Div(summary, className="bot-msg")  # summary is already a list of Li elements
-        return children, summary_text
-    else:
-        return children, html.Div("Could not detect a matching medicine.", className="bot-msg")
+    # 3. Show the summary text after the image
+    if drug_name and summary_text:
+        children.append(
+            html.Div([
+                html.Strong(f"Summary for {drug_name}:"),
+                html.Ul(summary_text)  # Generates bullet points from the model output
+            ], className="bot-msg")
+        )
+
+    return children
 
 # ---- Therapy chat callback  ----
 @app.callback(

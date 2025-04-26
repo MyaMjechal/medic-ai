@@ -43,23 +43,23 @@ vision_client = vision.ImageAnnotatorClient()
 
 print("[Scan] Precomputed drug name FAISS index ready.")
 
-# ---- Model Caching ----
-_cached_generator = None
+# # ---- Model Caching ----
+# _cached_generator = None
 
-def load_generator_once():
-    global _cached_generator
-    if _cached_generator is None:
-        print("[Model] Loading Mistral 7B model for the first time...")
-        _cached_generator = hf_pipeline(
-            "text-generation",
-            model="mistralai/Mistral-7B-Instruct-v0.2",
-            device=0,
-            use_auth_token=HUGGINGFACE_TOKEN
-        )
-        print("[Model] Mistral 7B model loaded and cached.")
-    else:
-        print("[Model] Reusing cached Mistral 7B model.")
-    return _cached_generator
+# def load_generator_once():
+#     global _cached_generator
+#     if _cached_generator is None:
+#         print("[Model] Loading Mistral 7B model for the first time...")
+#         _cached_generator = hf_pipeline(
+#             "text-generation",
+#             model="mistralai/Mistral-7B-Instruct-v0.2",
+#             device=0,
+#             use_auth_token=HUGGINGFACE_TOKEN
+#         )
+#         print("[Model] Mistral 7B model loaded and cached.")
+#     else:
+#         print("[Model] Reusing cached Mistral 7B model.")
+#     return _cached_generator
 
 # ---- Helper Functions ----
 
@@ -102,18 +102,18 @@ def retrieve_drug_info(drug_name):
     print("[Retrieve] Drug info retrieved.")
     return df.iloc[I[0][0]].to_dict()
 
-def build_prompt(info):
-    return f"""
-You are a medical assistant. Summarize the following drug information.
+# def build_prompt(info):
+#     return f"""
+# You are a medical assistant. Summarize the following drug information.
 
-Name: {info.get('name', 'N/A')}
-Description: {info.get('description', 'N/A')}
-Indication: {info.get('indication', 'N/A')}
-Mechanism of Action: {info.get('mechanism_of_action', 'N/A')}
-Toxicity: {info.get('toxicity', 'N/A')}
+# Name: {info.get('name', 'N/A')}
+# Description: {info.get('description', 'N/A')}
+# Indication: {info.get('indication', 'N/A')}
+# Mechanism of Action: {info.get('mechanism_of_action', 'N/A')}
+# Toxicity: {info.get('toxicity', 'N/A')}
 
-Summarize this for a general audience.
-"""
+# Summarize this for a general audience.
+# """
 
 def generate_summary(info, model, tokenizer):
     print("[Model] Generating summary using Mistral 7B...")
@@ -130,12 +130,20 @@ def generate_summary(info, model, tokenizer):
     - Toxicity: {info.get('toxicity', 'N/A')}
 
     Please summarize the drug in a clear and easy-to-understand format suitable for a patient:
-    - What is this medicine for? (General use)
-    - How is it used? (Dosage and instructions)
-    - What are the common side effects?
-    - Are there any important precautions or warnings for patients?
 
-    Please avoid complex terms, and keep it short and simple.
+    What is this medicine for? (General use)
+    - {info.get('description', 'N/A')}
+
+    How is it used? (Dosage and instructions)
+    - {info.get('indication', 'N/A')}
+
+    What are the common side effects?
+    - {info.get('simplified_toxicity', 'N/A')}
+
+    Are there any important precautions or warnings for patients?
+    - {info.get('simplified_mechanism', 'N/A')}
+
+    Please keep the answer short and simple for general understanding.
     """
 
     input_ids = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -231,6 +239,7 @@ def scan_medicine(contents, model, tokenizer):
 
         if drug_name:
             drug_info = retrieve_drug_info(drug_name)
+            print(f"DRUG INFO: ", drug_info)
             summary_text = generate_summary(drug_info, model, tokenizer)
 
             if summary_text:
