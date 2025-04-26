@@ -1,0 +1,6 @@
+gradio
+torch
+aiosqlite
+langchain-core
+langchain-community
+transformers
