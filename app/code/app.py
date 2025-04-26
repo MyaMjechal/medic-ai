@@ -248,12 +248,14 @@ def display_page(pathname):
     [State('scan-window', 'children')]
 )
 def handle_upload_and_scan(uploaded_contents, current_children):
-    current_children = current_children or []
-
+    # If there's no uploaded content, don't update
     if not uploaded_contents:
         raise dash.exceptions.PreventUpdate
 
-    # Always first show uploaded image
+    # Initialize the response structure (keep existing chat messages)
+    current_children = current_children or []
+
+    # First, show uploaded image
     current_children.append(
         html.Div(
             html.Img(
@@ -265,26 +267,28 @@ def handle_upload_and_scan(uploaded_contents, current_children):
         )
     )
 
-    # Immediately show loading spinner while scanning
+    # Show a temporary loading message (Scan in progress)
     scan_result = html.Div("Scanning...", className="bot-msg", style={'marginTop': '1rem'})
 
-    # Disable upload button while scanning
+    # Disable the upload button while scanning
     disabled = True
 
-    # Perform scanning
+    # Perform the scanning process (get drug name, summary, and error)
     drug_name, summary_text, error = scan_medicine(uploaded_contents, model, tokenizer)
 
     if error:
         scan_result = html.Div(error, className="bot-msg", style={'marginTop': '1rem'})
     else:
         scan_result = html.Div([
-            html.Div([
-                html.Strong(f"Summary for {drug_name}:"),
-                html.P(summary_text)
-            ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
-        ])
+            html.Strong(f"Summary for {drug_name}:"),
+            html.Ul([  # Show the summary text in a list format
+                html.Li(f"Use: {summary_text['use']}"),
+                html.Li(f"Dosage: {summary_text['dosage']}"),
+                html.Li(f"Warnings: {summary_text['warnings']}")
+            ])
+        ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
 
-    # Enable button again after scanning
+    # Re-enable the upload button once the scan is complete
     disabled = False
 
     return current_children, scan_result, disabled
