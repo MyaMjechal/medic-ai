@@ -82,7 +82,7 @@ about_page = dbc.Container([
 scan_page = dbc.Container([
     html.H2("AI Medicine Scanning", className="mb-3"),
     html.P("Snap or upload a photo of your medication label to get a summary."),
-    
+
     # Chat‐style window
     html.Div(
         id="scan-window",
@@ -102,6 +102,16 @@ scan_page = dbc.Container([
         accept="image/*",
         multiple=False,
         className="mt-2"
+    ),
+
+    # Add a hidden loading signal
+    dcc.Store(id='image-uploaded', data=False),
+    
+    # Loading spinner
+    dcc.Loading(
+        id="loading-spinner",
+        type="circle",
+        children=html.Div(id="scan-result")
     )
 ], className="page-content")
 
@@ -140,21 +150,21 @@ def display_page(pathname):
     return home_page
 
 # ---- Scan upload callback ----
+# ---- Callback 1: Show uploaded image immediately ----
 @app.callback(
-    Output('scan-window', 'children'),
+    [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
     Input('upload-image', 'contents'),
     State('scan-window', 'children')
 )
-def update_scan(contents, children):
+def display_uploaded_image(contents, children):
     if not contents:
-        print("[Dash] No image uploaded yet.")
-        return children
+        return children, False
 
-    print("[Dash] Image upload detected. Starting scan...")
+    print("[Dash] Image uploaded, displaying...")
 
     children = children or []
 
-    # 1) Show uploaded image (user bubble)
+    # Show user-uploaded image immediately
     children.append(
         html.Div(
             html.Img(
@@ -166,31 +176,38 @@ def update_scan(contents, children):
         )
     )
 
-    # 2) Call backend medicine scanning
+    return children, contents  # pass contents to second callback
+
+# ---- Callback 2: Process uploaded image and generate AI reply ----
+@app.callback(
+    Output('scan-result', 'children'),
+    Input('image-uploaded', 'data')
+)
+def scan_and_generate(contents):
+    if not contents:
+        return ""
+
+    print("[Dash] Starting backend scan for uploaded image...")
+
     drug_name, summary_text, error = scan_medicine(contents)
 
     if error:
         print(f"[Dash] Scan error: {error}")
-        children.append(
-            html.Div(
-                error,
-                className="bot-msg",
-                style={'clear': 'both', 'marginTop': '0.5rem'}
-            )
-        )
-    else:
-        print(f"[Dash] Scan success. Found: {drug_name}")
-        children.append(
-            html.Div([
-                html.Strong(f"Summary for {drug_name}:"),
-                html.P(summary_text)
-            ],
+        return html.Div(
+            error,
             className="bot-msg",
             style={'clear': 'both', 'marginTop': '0.5rem'}
-            )
         )
 
-    return children
+    print(f"[Dash] Scan success. Found: {drug_name}")
+
+    return html.Div([
+        html.Strong(f"Summary for {drug_name}:"),
+        html.P(summary_text)
+    ],
+    className="bot-msg",
+    style={'clear': 'both', 'marginTop': '0.5rem'}
+    )
 
 # ---- Therapy chat callback  ----
 @app.callback(

@@ -60,20 +60,32 @@ def ocr_google_image(image_bytes):
     return response.text_annotations[0].description if response.text_annotations else ""
 
 def find_best_drug(ocr_text, drug_names):
-    """Find best matching drug name from OCR text."""
-    print("[Scan] Searching best matching drug name...")
-    words = ocr_text.split()
-    candidates = []
+    print("[Scan] Searching best matching drug name (optimized)...")
+    # Clean OCR text
+    clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+    words = clean_text.split()
 
+    candidates = []
+    if not words:
+        print("[Scan] OCR produced empty or bad text after cleaning.")
+        return None
+
+    # Try to match full cleaned OCR text to known drug names first
+    match, score = process.extractOne(' '.join(words), drug_names)
+    if score > 85:
+        print(f"[Match] Full OCR best match found: {match} (Score: {score})")
+        return match
+
+    # Fall back: Try matching individual words if needed
     for word in words:
         match, score = process.extractOne(word, drug_names)
         if score > 85:
             candidates.append((match, score))
 
     if candidates:
-        candidates.sort(key=lambda x: x[1], reverse=True)  # highest score first
+        candidates.sort(key=lambda x: x[1], reverse=True)
         best_match = candidates[0][0]
-        print(f"[Match] Best drug match found: {best_match}")
+        print(f"[Match] Fallback best word match found: {best_match}")
         return best_match
     else:
         print("[Match] No good drug match found.")
