@@ -10,7 +10,7 @@ from transformers import pipeline as hf_pipeline
 from google.cloud import vision
 
 
-# Huggingface token
+# Huggingface Token from Environment
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
 
 # Path setup
@@ -20,6 +20,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 csv_path = os.path.join(DATA_DIR, "drugbank_clean.csv")
 index_path = os.path.join(DATA_DIR, "drug_index.faiss")
 
+# ---- Light Resources Loaded at Startup ----
 # Load Dataset
 print("Loading DrugBank data...")
 df = pd.read_csv(csv_path)
@@ -32,20 +33,11 @@ index = faiss.read_index(index_path)
 print("Loading SentenceTransformer...")
 embedder = SentenceTransformer('all-MiniLM-L6-v2', token=HUGGINGFACE_TOKEN)
 
-# Load LLM Model
-print("Loading Mistral 7B Model...")
-generator = hf_pipeline(
-    "text-generation",
-    model="mistralai/Mistral-7B-Instruct-v0.2",
-    token=HUGGINGFACE_TOKEN,
-    device=0  # Move to GPU if available
-)
-
 # Load Google Vision API Client
 print("Initializing Google Vision Client...")
 vision_client = vision.ImageAnnotatorClient()
 
-print("Medicine scanning module ready.")
+print("Medicine scanning backend ready (model lazy loading).")
 
 # ---- Helper Functions ----
 
@@ -98,12 +90,19 @@ Summarize this for a general audience.
 """
 
 def generate_summary(info):
-    """Generate a human-readable summary using the LLM."""
+    """Load the Hugging Face model lazily, with Huggingface Token."""
+    print("Loading Mistral 7B model from HuggingFace...")
+    generator = hf_pipeline(
+        "text-generation",
+        model="mistralai/Mistral-7B-Instruct-v0.2",
+        device=0,
+        use_auth_token=HUGGINGFACE_TOKEN
+    )
     prompt = build_prompt(info)
     output = generator(prompt, max_new_tokens=250)[0]["generated_text"]
     return output
 
-# ---- High-Level Function ----
+# ---- Main High-Level Scan Function ----
 
 def scan_medicine(contents):
     """
