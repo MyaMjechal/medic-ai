@@ -264,7 +264,7 @@ def display_uploaded_image(contents, children):
 
 # Process Medicine Scan
 @app.callback(
-    [Output('scan-result', 'children'), Output('image-uploaded', 'data')],
+    Output('scan-result', 'children'),
     Input('image-uploaded', 'data')
 )
 def scan_and_generate(contents):
