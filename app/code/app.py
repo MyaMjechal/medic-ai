@@ -147,11 +147,14 @@ def display_page(pathname):
 )
 def update_scan(contents, children):
     if not contents:
+        print("[Dash] No image uploaded yet.")
         return children
+
+    print("[Dash] Image upload detected. Starting scan...")
 
     children = children or []
 
-    # 1) show the uploaded image as a user bubble, on its own row
+    # 1) Show uploaded image (user bubble)
     children.append(
         html.Div(
             html.Img(
@@ -163,11 +166,11 @@ def update_scan(contents, children):
         )
     )
 
-    # 2) Use scanning logic from medicine_scanning.py
+    # 2) Call backend medicine scanning
     drug_name, summary_text, error = scan_medicine(contents)
 
     if error:
-        # Error occurred (OCR failed, drug not found, etc.)
+        print(f"[Dash] Scan error: {error}")
         children.append(
             html.Div(
                 error,
@@ -176,7 +179,7 @@ def update_scan(contents, children):
             )
         )
     else:
-        # Successful drug scan and summary
+        print(f"[Dash] Scan success. Found: {drug_name}")
         children.append(
             html.Div([
                 html.Strong(f"Summary for {drug_name}:"),
