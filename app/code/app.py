@@ -1,8 +1,9 @@
 import dash
+import asyncio
 from dash import html, dcc, Input, Output, State
 import dash_bootstrap_components as dbc
 from emotion_chat_2 import EmotionChatbot
-import asyncio
+from code.medicine_scanning import scan_medicine
 
 
 chatbot = EmotionChatbot()
@@ -155,29 +156,39 @@ def update_scan(contents, children):
         html.Div(
             html.Img(
                 src=contents,
-                style={'maxWidth':'200px','borderRadius':'8px'}
+                style={'maxWidth': '200px', 'borderRadius': '8px'}
             ),
             className="user-msg",
-            style={'clear':'both', 'marginTop':'1rem'}
+            style={'clear': 'both', 'marginTop': '1rem'}
         )
     )
 
-    # 2) show a fake AI reply, on its own row below
-    children.append(
-        html.Div([
-            html.Strong("Summary for Xanax (Alprazolam):"),
-            html.Ul([
-                html.Li("Use: Anxiety relief"),
-                html.Li("Dosage: 0.25–0.5 mg orally, up to three times daily"),
-                html.Li("Warnings: Risk of dependence; avoid alcohol")
-            ])
-        ],
-        className="bot-msg",
-        style={'clear':'both', 'marginTop':'0.5rem'}
+    # 2) Use scanning logic from medicine_scanning.py
+    drug_name, summary_text, error = scan_medicine(contents)
+
+    if error:
+        # Error occurred (OCR failed, drug not found, etc.)
+        children.append(
+            html.Div(
+                error,
+                className="bot-msg",
+                style={'clear': 'both', 'marginTop': '0.5rem'}
+            )
         )
-    )
+    else:
+        # Successful drug scan and summary
+        children.append(
+            html.Div([
+                html.Strong(f"Summary for {drug_name}:"),
+                html.P(summary_text)
+            ],
+            className="bot-msg",
+            style={'clear': 'both', 'marginTop': '0.5rem'}
+            )
+        )
 
     return children
+
 # ---- Therapy chat callback  ----
 @app.callback(
     [Output('chat-window', 'children'), Output('therapy-input', 'value')],

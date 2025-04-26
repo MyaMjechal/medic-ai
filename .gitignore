@@ -175,3 +175,4 @@ cython_debug/
 
 load_model.py
 fix_notebook.py
+test_data/
