@@ -129,13 +129,15 @@ QUERY_TYPES = {
     "CHITCHAT": "chitchat"
 }
 
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+
 class EmotionChatbot:
     def __init__(self, db_path: str = "chatbot_history.db"):
         print("Loading models...")
         use_quantization = True 
 
         model_id = "mistralai/Mistral-7B-Instruct-v0.2"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, token=HUGGINGFACE_TOKEN)
 
         if torch.cuda.is_available():
             print("CUDA available, loading model on GPU...")
@@ -150,6 +152,7 @@ class EmotionChatbot:
                     )
                     self.model = AutoModelForCausalLM.from_pretrained(
                         model_id,
+                        token=HUGGINGFACE_TOKEN,
                         quantization_config=bnb_config,
                         device_map="auto"
                     )
@@ -157,17 +160,18 @@ class EmotionChatbot:
                 else:
                     self.model = AutoModelForCausalLM.from_pretrained(
                         model_id,
+                        token=HUGGINGFACE_TOKEN,
                         torch_dtype=torch.float16,
                         device_map="auto"
                     )
                     print("Model loaded in float16 on GPU.")
             except Exception as e:
                 print(f"Error loading model on GPU: {e}. Falling back to CPU.")
-                self.model = AutoModelForCausalLM.from_pretrained(model_id)
+                self.model = AutoModelForCausalLM.from_pretrained(model_id, token=HUGGINGFACE_TOKEN,)
                 print("Model loaded on CPU.")
         else:
             print("CUDA not available, loading model on CPU...")
-            self.model = AutoModelForCausalLM.from_pretrained(model_id)
+            self.model = AutoModelForCausalLM.from_pretrained(model_id, token=HUGGINGFACE_TOKEN,)
             print("Model loaded on CPU.")
 
         device_num = 0 if torch.cuda.is_available() else -1
