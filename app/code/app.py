@@ -264,19 +264,19 @@ def display_uploaded_image(contents, children):
 
 # Process Medicine Scan
 @app.callback(
-    Output('scan-result', 'children'),
+    [Output('scan-result', 'children'), Output('image-uploaded', 'data')],
     Input('image-uploaded', 'data')
 )
 def scan_and_generate(contents):
     if not contents:
-        return ""
+        return "", False
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
     if error:
-        return html.Div(error, className="bot-msg")
+        return html.Div(error, className="bot-msg"), False
     return html.Div([
         html.Strong(f"Summary for {drug_name}:"),
         html.P(summary_text)
-    ], className="bot-msg")
+    ], className="bot-msg"), False
 
 # Disable Upload Button During Scan
 @app.callback(

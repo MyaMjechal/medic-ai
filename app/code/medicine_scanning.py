@@ -130,6 +130,7 @@ def generate_summary(info, model, tokenizer):
         )
     output = tokenizer.decode(output[0], skip_special_tokens=True)
     print("[Model] Summary generation complete.")
+    return output
 
 # ---- Main Scan Function ----
 
