@@ -241,69 +241,55 @@ def display_page(pathname):
 
 # ---- Scan Upload / Display Uploaded Image / Scan Another ----
 
+# Show Uploaded Image + Control Upload Button
 @app.callback(
-    [Output('scan-window', 'children'), Output('image-uploaded', 'data')],
-    [Input('upload-image', 'contents'),
-     Input({'type': 'dynamic-btn', 'id': ALL}, 'n_clicks')],
+    [Output('scan-window', 'children'), 
+     Output('image-uploaded', 'data'),
+     Output('upload-btn', 'disabled')],
+    Input('upload-image', 'contents'),
     State('scan-window', 'children')
 )
-def update_scan_window(uploaded_contents, scan_another_clicks, current_children):
-    triggered = ctx.triggered_id
+def update_scan_window(uploaded_contents, current_children):
     current_children = current_children or []
 
-    if triggered == 'upload-image' and uploaded_contents:
-        # Display uploaded image
-        current_children.append(
-            html.Div(
-                html.Img(
-                    src=uploaded_contents,
-                    style={'maxWidth': '200px', 'borderRadius': '8px'}
-                ),
-                className="user-msg",
-                style={'clear': 'both', 'marginTop': '1rem'}
-            )
+    if not uploaded_contents:
+        raise dash.exceptions.PreventUpdate
+
+    current_children.append(
+        html.Div(
+            html.Img(
+                src=uploaded_contents,
+                style={'maxWidth': '200px', 'borderRadius': '8px'}
+            ),
+            className="user-msg",
+            style={'clear': 'both', 'marginTop': '1rem'}
         )
-        return current_children, uploaded_contents
+    )
 
-    if isinstance(triggered, dict) and triggered.get('type') == 'dynamic-btn':
-        # User clicked "Scan Another", reset
-        return [html.Div("Please upload a medicine image to begin.", className="bot-msg")], None
+    # Disable Upload button after user uploads
+    return current_children, uploaded_contents, True
 
-    raise dash.exceptions.PreventUpdate
-
+# Perform Medicine Scan and Show Result
 @app.callback(
-    Output('scan-result', 'children'),
+    [Output('scan-result', 'children'),
+     Output('upload-btn', 'disabled')],
     Input('image-uploaded', 'data')
 )
 def scan_and_generate(contents):
     if not contents:
-        return ""
+        raise dash.exceptions.PreventUpdate
 
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
     if error:
-        return html.Div(error, className="bot-msg")
+        return html.Div(error, className="bot-msg"), False  # Enable button again if error
 
     return html.Div([
         html.Div([
             html.Strong(f"Summary for {drug_name}:"),
             html.P(summary_text)
-        ], className="bot-msg", style={'marginBottom': '1rem'}),
-
-        html.Button(
-            "Scan Another Medicine",
-            id={"type": "dynamic-btn", "id": "scan-another-btn"},
-            className="btn btn-secondary mt-2"
-        )
-    ])
-
-# ---- Upload Button Disable ----
-@app.callback(
-    Output('upload-btn', 'disabled'),
-    Input('image-uploaded', 'data')
-)
-def disable_upload_button(data):
-    return bool(data)
+        ], className="bot-msg", style={'marginBottom': '1rem', 'backgroundColor': '#eaf4fb', 'padding': '10px', 'borderRadius': '8px'})
+    ]), False  # Enable Upload button again after finish
 
 # ---- Therapy chat callback  ----
 @app.callback(
