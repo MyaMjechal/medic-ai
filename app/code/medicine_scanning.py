@@ -10,6 +10,9 @@ from transformers import pipeline as hf_pipeline
 from google.cloud import vision
 
 
+# Huggingface token
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
+
 # Path setup
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -18,27 +21,28 @@ csv_path = os.path.join(DATA_DIR, "drugbank_clean.csv")
 index_path = os.path.join(DATA_DIR, "drug_index.faiss")
 
 # Load Dataset
-print("🔹 Loading DrugBank data...")
+print("Loading DrugBank data...")
 df = pd.read_csv(csv_path)
 
 # Load FAISS Index
-print("🔹 Loading FAISS index...")
+print("Loading FAISS index...")
 index = faiss.read_index(index_path)
 
 # Load Embedding Model
-print("🔹 Loading SentenceTransformer...")
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
+print("Loading SentenceTransformer...")
+embedder = SentenceTransformer('all-MiniLM-L6-v2', token=HUGGINGFACE_TOKEN)
 
 # Load LLM Model
-print("🔹 Loading Mistral 7B Model...")
+print("Loading Mistral 7B Model...")
 generator = hf_pipeline(
     "text-generation",
     model="mistralai/Mistral-7B-Instruct-v0.2",
+    token=HUGGINGFACE_TOKEN,
     device=0  # Move to GPU if available
 )
 
 # Load Google Vision API Client
-print("🔹 Initializing Google Vision Client...")
+print("Initializing Google Vision Client...")
 vision_client = vision.ImageAnnotatorClient()
 
 print("Medicine scanning module ready.")
