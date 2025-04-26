@@ -241,46 +241,33 @@ def display_page(pathname):
 
 # ---- Scan upload callback ----
 @app.callback(
-    Output('scan-window', 'children'),  # This holds the chat window (image + text)
-    [Input('upload-image', 'contents')],
-    State('scan-window', 'children'),
-    prevent_initial_call=True
+    Output('scan-window', 'children'),
+    Output('scan-result', 'children'),
+    Input('upload-image', 'contents'),
+    State('scan-window', 'children')
 )
-def handle_upload_and_scan(contents, children):
+def scan_and_generate(contents, children):
     if not contents:
-        return children
+        return children, "Please upload an image to begin the scan."
 
-    # 1. Display the uploaded image immediately in the chat window
+    # Step 1: Show uploaded image first
     children = children or []
-    children.append(
-        html.Div(
-            html.Img(
-                src=contents,
-                style={'maxWidth': '200px', 'borderRadius': '8px'}
-            ),
-            className="user-msg",
-            style={'clear': 'both', 'marginTop': '1rem'}
-        )
-    )
+    children.append(html.Div(
+        html.Img(src=contents, style={'maxWidth': '200px', 'borderRadius': '8px'}),
+        className="user-msg", style={'clear': 'both', 'marginTop': '1rem'}
+    ))
 
-    # 2. Start the scan process and get the result
-    drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
+    # Step 2: Process the medicine scan
+    drug_name, summary, error = scan_medicine(contents, model, tokenizer)
 
-    # Handle any error during the scan
     if error:
-        children.append(html.Div(error, className="bot-msg"))
-        return children
+        return children, html.Div(error, className="bot-msg")
 
-    # 3. Show the summary text after the image
-    if drug_name and summary_text:
-        children.append(
-            html.Div([
-                html.Strong(f"Summary for {drug_name}:"),
-                html.Ul(summary_text)  # Generates bullet points from the model output
-            ], className="bot-msg")
-        )
+    # Step 3: Display generated summary in bullet points
+    summary_bullets = parse_summary(summary)
 
-    return children
+    # Return updated children with uploaded image and the Q&A summary format
+    return children, html.Div(summary_bullets, className="bot-msg")
 
 # ---- Therapy chat callback  ----
 @app.callback(

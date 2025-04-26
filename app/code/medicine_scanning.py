@@ -117,7 +117,27 @@ Summarize this for a general audience.
 
 def generate_summary(info, model, tokenizer):
     print("[Model] Generating summary using Mistral 7B...")
-    prompt = build_prompt(info)
+
+    # Adjust the prompt to focus on simpler, user-friendly output
+    prompt = f"""
+    You are a medical assistant providing simple and clear explanations for patients.
+
+    The following drug information is provided:
+    - Name: {info.get('name', 'N/A')}
+    - Description: {info.get('description', 'N/A')}
+    - Indication: {info.get('indication', 'N/A')}
+    - Mechanism of Action: {info.get('mechanism_of_action', 'N/A')}
+    - Toxicity: {info.get('toxicity', 'N/A')}
+
+    Please summarize the drug in a clear and easy-to-understand format suitable for a patient:
+    - What is this medicine for? (General use)
+    - How is it used? (Dosage and instructions)
+    - What are the common side effects?
+    - Are there any important precautions or warnings for patients?
+
+    Please avoid complex terms, and keep it short and simple.
+    """
+
     input_ids = tokenizer(prompt, return_tensors="pt").to(model.device)
 
     with torch.no_grad():
@@ -131,13 +151,45 @@ def generate_summary(info, model, tokenizer):
             eos_token_id=tokenizer.eos_token_id
         )
 
-    # Correct slicing
     generated_tokens = output[0][input_ids["input_ids"].shape[1]:]
     output_text = tokenizer.decode(generated_tokens, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
     print("[Model] Summary generation complete.")
     return output_text.strip()
 
+
+def parse_summary(summary_text):
+    """Parse the AI-generated summary into structured Q&A format for patient clarity."""
+    print("[Postprocess] Parsing the summary into Q&A format...")
+    
+    # Example parsing based on expected format, simple regex to separate different parts.
+    # In a real case, a better parser or predefined output structure should be used.
+    lines = summary_text.split("\n")
+    
+    qna = {
+        "use": "",
+        "dosage": "",
+        "side_effects": "",
+        "precautions": ""
+    }
+
+    for line in lines:
+        if line.lower().startswith("what is this medicine for?"):
+            qna["use"] = line
+        elif line.lower().startswith("how is it used?"):
+            qna["dosage"] = line
+        elif line.lower().startswith("what are the common side effects?"):
+            qna["side_effects"] = line
+        elif line.lower().startswith("are there any important precautions or warnings for patients?"):
+            qna["precautions"] = line
+
+    # Ensure to return structured data for Q&A
+    return [
+        html.Li(f"Use: {qna['use']}"),
+        html.Li(f"Dosage: {qna['dosage']}"),
+        html.Li(f"Common Side Effects: {qna['side_effects']}"),
+        html.Li(f"Precautions: {qna['precautions']}")
+    ]
 
 def split_into_bullets(summary_text):
     """Split the model summary text into bullet points."""

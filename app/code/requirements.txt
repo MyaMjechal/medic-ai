@@ -4,3 +4,17 @@ aiosqlite
 langchain-core
 langchain-community
 transformers
+bitsandbytes
+accelerate
+dash
+dash-bootstrap-components
+pyngrok
+faiss-cpu
+fuzzywuzzy
+google-cloud-vision
+dash
+dash-bootstrap-components
+pyngrok
+faiss-cpu
+fuzzywuzzy
+google-cloud-vision
