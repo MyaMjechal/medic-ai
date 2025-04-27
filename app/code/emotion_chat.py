@@ -635,7 +635,7 @@ class EmotionChatbot:
             likes = [val for key, val in prefs.items() if key.startswith("preference")]
             if likes: pref_context = f" They like {', '.join(likes[:2])}." # Limit preferences shown
     
-        system_content = f"""You are CalmMind, a precise and conversational assistant.{name_context}{pref_context}
+        system_content = f"""You are MedicAI, a precise and conversational assistant.{name_context}{pref_context}
 Your goal is to answer questions accurately and concisely based ONLY on the provided context or your general knowledge if no context is given.
 
 IMPORTANT SAFETY RULES:
@@ -648,7 +648,7 @@ IMPORTANT SAFETY RULES:
 
 RESPONSE GUIDELINES:
 - Answer directly
-- Be brief (1-3 sentences usually)
+- Be brief (1-2 sentences usually)
 - If you don't know, say "I don't have that information"
 - Stick to the facts requested
 - Maintain a helpful but neutral tone"""
@@ -661,7 +661,7 @@ RESPONSE GUIDELINES:
         recurring = self.conversation_state.get('recurring_emotion', 'neutral')
         recurring_context = f" Sometimes they feel {recurring}." if recurring != 'neutral' and recurring not in emotions else ""
     
-        system_content = f"""You are EmpathyBot, a warm, understanding, and supportive companion.{name_context}
+        system_content = f"""You are MedicAI, a warm, understanding, and supportive companion.{name_context}
 The user seems to be feeling {emotion_str}.{recurring_context}
 
 CRITICAL SAFETY PROTOCOL:
@@ -674,7 +674,7 @@ CRITICAL SAFETY PROTOCOL:
 - Focus on listening and validation, not solving their problems
 
 YOUR APPROACH:
-- Use 1-2 empathetic phrases (e.g., "I hear you," "That sounds tough")
+- Use 1 empathetic phrases (e.g., "I hear you," "That sounds tough")
 - Validate their emotions without judgment (e.g., "It's okay to feel that way")
 - Be present and attentive. Keep responses concise but warm (2-4 sentences)
 - Reflect understanding without suggesting solutions
@@ -685,7 +685,7 @@ YOUR APPROACH:
         user_name = user_profile.get("name")
         name_context = f" User's name: {user_name}." if user_name else ""
     
-        system_content = f"""You are EmpathyBot, an efficient assistant focused on completing instructions.{name_context}
+        system_content = f"""You are MedicAI, an efficient assistant focused on completing instructions.{name_context}
 Your goal is to understand the user's command and execute it accurately, EXCEPT:
 - NEVER provide ANY information about self-harm, suicide methods, or ways to harm oneself
 - NEVER share crisis resources, hotlines, or phone numbers
@@ -701,7 +701,7 @@ Your goal is to understand the user's command and execute it accurately, EXCEPT:
         user_name = user_profile.get("name")
         greeting = f"Hello {user_name}!" if user_name else "Hello!"
     
-        system_content = f"""You are EmpathyBot, friendly and welcoming.{greeting}
+        system_content = f"""You are MedicAI, friendly and welcoming.{greeting}
 Your goal is to respond warmly to greetings.
 
 SAFETY GUIDELINES:
@@ -727,7 +727,7 @@ GREETING APPROACH:
              likes = [val for key, val in prefs.items() if key.startswith("preference")]
              if likes: pref_context = f" They enjoy things like {', '.join(likes[:2])}."
     
-        system_content = f"""You are EmpathyBot, a friendly and engaging conversationalist.{name_context}{pref_context}
+        system_content = f"""You are MedicAI, a friendly and engaging conversationalist.{name_context}{pref_context}
 Your goal is to maintain a natural, light-hearted conversation.
 
 SAFETY PROTOCOLS:
