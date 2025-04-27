@@ -102,60 +102,74 @@ def ocr_google_image(image_bytes):
 #     return best_match
 
 
-def find_best_drug_hybrid_dynamic(ocr_text, drug_names, embedder, initial_top_k=20, 
-                                  max_top_k=100, step=20, fuzzy_threshold=70):
+def find_best_drug_faiss(
+    ocr_text, 
+    embedder, 
+    drug_name_index, 
+    drug_names, 
+    k=5, 
+    strong_threshold=0.4, 
+    weak_threshold=0.6
+):
     """
-    Hybrid matching with dynamic fallback:
-    Try small candidate sets first, expand if needed.
+    Pure FAISS search for best matching drug, with intelligent threshold checking.
+    
+    Args:
+        ocr_text (str): OCR scanned text.
+        embedder: Embedding model.
+        drug_name_index: FAISS index of drug name embeddings.
+        drug_names (list): List of drug names.
+        k (int): Number of top neighbors to search.
+        strong_threshold (float): Distance under which the match is accepted confidently.
+        weak_threshold (float): Distance under which the match is acceptable but weaker.
+        
+    Returns:
+        best_match (str or None): Best matching drug name if found, else None.
+        best_distance (float or None): Distance value of best match.
+        confidence (str): "strong", "weak", or "reject"
     """
-    print("[Hybrid Match] Start finding best matching drug name...")
+    print("[FAISS Match] Starting FAISS matching...")
 
     # --- 1. Clean OCR text ---
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
     if not clean_text.strip():
-        print("[Hybrid Match] OCR text is empty after cleaning.")
-        return None
+        print("[FAISS Match] OCR text is empty after cleaning.")
+        return None, None, "reject"
 
-    # --- 2. Embed OCR text once ---
+    # --- 2. Encode OCR text ---
     ocr_embedding = embedder.encode([clean_text])
     ocr_embedding = np.array(ocr_embedding)
 
-    # --- 3. Dynamic Fuzzy Fallback ---
-    top_k = initial_top_k
-    while top_k <= max_top_k:
-        print(f"[Hybrid Match] Trying top {top_k} fuzzy matches...")
+    # --- 3. Search full FAISS index ---
+    D, I = drug_name_index.search(ocr_embedding, k=k)
 
-        # 3.1 Fuzzy match
-        fuzzy_candidates = process.extract(clean_text, drug_names, limit=top_k)
-        candidate_names = [name for name, score in fuzzy_candidates if score > fuzzy_threshold]
+    print("[FAISS Match] Top distances:", D[0])
+    print("[FAISS Match] Top matches:", [drug_names[idx] for idx in I[0]])
 
-        if not candidate_names:
-            print(f"[Hybrid Match] No good candidates in top {top_k}. Expanding...")
-            top_k += step
-            continue
+    # --- 4. Find best candidate under thresholds ---
+    best_idx = None
+    best_distance = None
 
-        print(f"[Hybrid Match] Candidates found: {candidate_names}")
+    for rank in range(k):
+        idx = I[0][rank]
+        distance = D[0][rank]
+        print(f"Checking candidate: {drug_names[idx]} with distance {distance}")
 
-        # 3.2 Embed candidate names
-        candidate_embeddings = embedder.encode(candidate_names)
-        candidate_embeddings = np.array(candidate_embeddings)
+        if distance <= strong_threshold:
+            print("[FAISS Match] Strong match found.")
+            return drug_names[idx], distance, "strong"
+        elif distance <= weak_threshold:
+            # Keep the best weak candidate, in case no strong one
+            if best_idx is None or distance < best_distance:
+                best_idx = idx
+                best_distance = distance
 
-        # 3.3 Create temporary FAISS index
-        dim = ocr_embedding.shape[1]
-        temp_index = faiss.IndexFlatL2(dim)
-        temp_index.add(candidate_embeddings)
+    if best_idx is not None:
+        print("[FAISS Match] Weak match found.")
+        return drug_names[best_idx], best_distance, "weak"
 
-        # 3.4 Search in temporary index
-        D, I = temp_index.search(ocr_embedding, k=1)
-        best_idx = I[0][0]
-        best_match = candidate_names[best_idx]
-
-        print(f"[Hybrid Match] Best match found: {best_match}")
-        return best_match, D[0][0]
-
-    # --- 4. If no match even after max_top_k ---
-    print("[Hybrid Match] No match found after maximum retries.")
-    return None
+    print("[FAISS Match] No acceptable match found.")
+    return None, None, "reject"
 
 def retrieve_drug_info(drug_name):
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
@@ -333,26 +347,17 @@ def scan_medicine(contents, model, tokenizer):
             return None, None, "No readable text found. Please upload a clear medicine package image."
 
         # --- Drug matching ---
-        result = find_best_drug_hybrid_dynamic(
+        drug_name, distance, confidence = find_best_drug_faiss(
             ocr_text=ocr_text,
-            drug_names=drug_names,
             embedder=embedder,
-            initial_top_k=20,
-            max_top_k=100,
-            step=20,
-            fuzzy_threshold=70
+            drug_name_index=drug_name_index,
+            drug_names=drug_names,
+            k=5,  # search top-5
+            strong_threshold=0.4,
+            weak_threshold=0.6
         )
 
-        if result is None:
-            print("[Scan] No drug name matched after search.")
-            return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
-        
-        drug_name, distance = result
-        print(f"[Match] Final matched drug: {drug_name} with distance: {distance}")
-
-        # --- Confidence Check: distance must be small enough ---
-        if distance > 0.6:  # This threshold depends on your embedding model
-            print("[Scan] Match distance too high; not confident it's a medicine package.")
+        if confidence == "reject":
             return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
 
         # --- If confident, continue processing ---
