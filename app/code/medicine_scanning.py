@@ -82,51 +82,51 @@ def ocr_google_image(image_bytes):
         print("[OCR] No text detected.")
     return response.text_annotations[0].description if response.text_annotations else ""
 
-# def find_best_drug(ocr_text):
-#     print("[Match] Finding best matching drug name (FAISS search)...")
-    
-#     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-#     print("[Check OCR] clean_text: ", clean_text)
-#     if not clean_text.strip():
-#         print("[Match] OCR text is empty after cleaning.")
-#         return None
-
-#     ocr_embedding = embedder.encode([clean_text])
-#     print("[OCR Embedding] embed result: ", ocr_embedding)
-#     D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
-#     print("[OCR Embedding] I value: ", I[0][0])
-#     best_idx = I[0][0]
-#     best_match = drug_names[best_idx]
-
-#     print(f"[Match] FAISS best match found: {best_match}")
-#     return best_match
-
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
     
-    # --- 1. Clean OCR text ---
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-    print("[Check OCR] clean_text:", clean_text)
-    
+    print("[Check OCR] clean_text: ", clean_text)
     if not clean_text.strip():
         print("[Match] OCR text is empty after cleaning.")
-        return None, None  # Important: return None for both match and distance
+        return None
 
-    # --- 2. Embed OCR text ---
     ocr_embedding = embedder.encode([clean_text])
-    ocr_embedding = np.array(ocr_embedding)
-    print("[OCR Embedding] embed result:", ocr_embedding)
-
-    # --- 3. Search FAISS index (k=1) ---
-    D, I = drug_name_index.search(ocr_embedding, k=1)
+    print("[OCR Embedding] embed result: ", ocr_embedding)
+    D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
+    print("[OCR Embedding] I value: ", I[0][0])
     best_idx = I[0][0]
-    best_distance = D[0][0]
     best_match = drug_names[best_idx]
 
-    print(f"[Match] FAISS best match found: {best_match} (distance: {best_distance})")
+    print(f"[Match] FAISS best match found: {best_match}")
+    return best_match
 
-    # --- 4. Add distance checking ---
-    return best_match, best_distance
+# def find_best_drug(ocr_text):
+#     print("[Match] Finding best matching drug name (FAISS search)...")
+    
+#     # --- 1. Clean OCR text ---
+#     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+#     print("[Check OCR] clean_text:", clean_text)
+    
+#     if not clean_text.strip():
+#         print("[Match] OCR text is empty after cleaning.")
+#         return None, None  # Important: return None for both match and distance
+
+#     # --- 2. Embed OCR text ---
+#     ocr_embedding = embedder.encode([clean_text])
+#     ocr_embedding = np.array(ocr_embedding)
+#     print("[OCR Embedding] embed result:", ocr_embedding)
+
+#     # --- 3. Search FAISS index (k=1) ---
+#     D, I = drug_name_index.search(ocr_embedding, k=1)
+#     best_idx = I[0][0]
+#     best_distance = D[0][0]
+#     best_match = drug_names[best_idx]
+
+#     print(f"[Match] FAISS best match found: {best_match} (distance: {best_distance})")
+
+#     # --- 4. Add distance checking ---
+#     return best_match, best_distance
 
 def retrieve_drug_info(drug_name):
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
@@ -304,15 +304,15 @@ def scan_medicine(contents, model, tokenizer):
             return None, None, "No readable text found. Please upload a clear medicine package image."
 
         # --- Drug matching ---
-        drug_name, distance = find_best_drug(ocr_text)
+        drug_name = find_best_drug(ocr_text)
 
         if drug_name is None:
             return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
 
-        # --- Check if distance is acceptable ---
-        if distance > 0.6:
-            print(f"[Scan] Match distance too high ({distance}). Rejecting image.")
-            return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
+        # # --- Check if distance is acceptable ---
+        # if distance > 0.6:
+        #     print(f"[Scan] Match distance too high ({distance}). Rejecting image.")
+        #     return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
 
        # --- Otherwise, continue normal flow ---
         drug_info = retrieve_drug_info(drug_name)
