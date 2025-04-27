@@ -8,6 +8,7 @@ from transformers import pipeline as hf_pipeline
 from google.cloud import vision
 import torch
 from dash import html
+from fuzzywuzzy import process
 
 
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
@@ -81,22 +82,80 @@ def ocr_google_image(image_bytes):
         print("[OCR] No text detected.")
     return response.text_annotations[0].description if response.text_annotations else ""
 
-def find_best_drug(ocr_text):
-    print("[Match] Finding best matching drug name (FAISS search)...")
+# def find_best_drug(ocr_text):
+#     print("[Match] Finding best matching drug name (FAISS search)...")
     
+#     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+#     print("[Check OCR] clean_text: ", clean_text)
+#     if not clean_text.strip():
+#         print("[Match] OCR text is empty after cleaning.")
+#         return None
+
+#     ocr_embedding = embedder.encode([clean_text])
+#     print("[OCR Embedding] embed result: ", ocr_embedding)
+#     D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
+#     print("[OCR Embedding] I value: ", I[0][0])
+#     best_idx = I[0][0]
+#     best_match = drug_names[best_idx]
+
+#     print(f"[Match] FAISS best match found: {best_match}")
+#     return best_match
+
+
+def find_best_drug_hybrid_dynamic(ocr_text, drug_names, embedder, initial_top_k=20, 
+                                  max_top_k=100, step=20, fuzzy_threshold=70):
+    """
+    Hybrid matching with dynamic fallback:
+    Try small candidate sets first, expand if needed.
+    """
+    print("[Hybrid Match] Start finding best matching drug name...")
+
+    # --- 1. Clean OCR text ---
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-    print("[Check OCR] clean_text: ", clean_text)
     if not clean_text.strip():
-        print("[Match] OCR text is empty after cleaning.")
+        print("[Hybrid Match] OCR text is empty after cleaning.")
         return None
 
+    # --- 2. Embed OCR text once ---
     ocr_embedding = embedder.encode([clean_text])
-    D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
-    best_idx = I[0][0]
-    best_match = drug_names[best_idx]
+    ocr_embedding = np.array(ocr_embedding)
 
-    print(f"[Match] FAISS best match found: {best_match}")
-    return best_match
+    # --- 3. Dynamic Fuzzy Fallback ---
+    top_k = initial_top_k
+    while top_k <= max_top_k:
+        print(f"[Hybrid Match] Trying top {top_k} fuzzy matches...")
+
+        # 3.1 Fuzzy match
+        fuzzy_candidates = process.extract(clean_text, drug_names, limit=top_k)
+        candidate_names = [name for name, score in fuzzy_candidates if score > fuzzy_threshold]
+
+        if not candidate_names:
+            print(f"[Hybrid Match] No good candidates in top {top_k}. Expanding...")
+            top_k += step
+            continue
+
+        print(f"[Hybrid Match] Candidates found: {candidate_names}")
+
+        # 3.2 Embed candidate names
+        candidate_embeddings = embedder.encode(candidate_names)
+        candidate_embeddings = np.array(candidate_embeddings)
+
+        # 3.3 Create temporary FAISS index
+        dim = ocr_embedding.shape[1]
+        temp_index = faiss.IndexFlatL2(dim)
+        temp_index.add(candidate_embeddings)
+
+        # 3.4 Search in temporary index
+        D, I = temp_index.search(ocr_embedding, k=1)
+        best_idx = I[0][0]
+        best_match = candidate_names[best_idx]
+
+        print(f"[Hybrid Match] Best match found: {best_match}")
+        return best_match, D[0][0]
+
+    # --- 4. If no match even after max_top_k ---
+    print("[Hybrid Match] No match found after maximum retries.")
+    return None
 
 def retrieve_drug_info(drug_name):
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
@@ -159,8 +218,8 @@ def generate_summary(info, model, tokenizer):
     with torch.no_grad():
         output = model.generate(
             **input_ids,
-            max_new_tokens=250,
-            temperature=0.7,
+            max_new_tokens=200,
+            temperature=0.95,
             top_p=0.9,
             do_sample=True,
             pad_token_id=tokenizer.eos_token_id,
@@ -268,27 +327,49 @@ def scan_medicine(contents, model, tokenizer):
         ocr_text = ocr_google_image(image_bytes)
         print("[OCR] image scan result: ", ocr_text)
 
-        drug_name = find_best_drug(ocr_text)
-        print(f"[Match] Final matched drug: {drug_name}")
+        # --- New check: OCR text should not be empty or garbage ---
+        if not ocr_text or len(ocr_text.strip()) < 5:
+            print("[Scan] OCR text too short, likely not a medicine package.")
+            return None, None, "No readable text found. Please upload a clear medicine package image."
 
-        if drug_name:
-            drug_info = retrieve_drug_info(drug_name)
-            print(f"DRUG INFO: ", drug_info)
-            summary_text = generate_summary(drug_info, model, tokenizer)
-            print(f"Generated Summary Text: {summary_text}")
+        # --- Drug matching ---
+        result = find_best_drug_hybrid_dynamic(
+            ocr_text=ocr_text,
+            drug_names=drug_names,
+            embedder=embedder,
+            initial_top_k=20,
+            max_top_k=100,
+            step=20,
+            fuzzy_threshold=70
+        )
 
-            if summary_text:
-                bullets = parse_summary(summary_text)  # This returns the list of HTML Li elements
-                print('[Result] Check bullets: ', bullets)
-            else:
-                bullets = fallback_bullets(drug_info)
-                print('[Result] Fallback Check bullets: ', bullets)
+        if result is None:
+            print("[Scan] No drug name matched after search.")
+            return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
+        
+        drug_name, distance = result
+        print(f"[Match] Final matched drug: {drug_name} with distance: {distance}")
 
-            print("[Scan] Full scan process completed successfully.")
-            return drug_name, bullets, None  # Return the list of bullets here
+        # --- Confidence Check: distance must be small enough ---
+        if distance > 0.6:  # This threshold depends on your embedding model
+            print("[Scan] Match distance too high; not confident it's a medicine package.")
+            return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
+
+        # --- If confident, continue processing ---
+        drug_info = retrieve_drug_info(drug_name)
+        print(f"DRUG INFO: ", drug_info)
+        summary_text = generate_summary(drug_info, model, tokenizer)
+        print(f"Generated Summary Text: {summary_text}")
+
+        if summary_text:
+            bullets = parse_summary(summary_text)  # This returns the list of HTML Li elements
+            print('[Result] Check bullets: ', bullets)
         else:
-            print("[Scan] No drug name matched.")
-            return None, None, "Could not detect a matching medicine name."
+            bullets = fallback_bullets(drug_info)
+            print('[Result] Fallback Check bullets: ', bullets)
+
+        print("[Scan] Full scan process completed successfully.")
+        return drug_name, bullets, None  # No error
     except Exception as e:
         print(f"[Scan] Error during scanning: {str(e)}")
         return None, None, f"Error: {str(e)}"

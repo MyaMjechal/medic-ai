@@ -18,3 +18,4 @@ pyngrok
 faiss-cpu
 fuzzywuzzy
 google-cloud-vision
+python-Levenshtein

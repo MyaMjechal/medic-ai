@@ -300,4 +300,4 @@ def update_therapy(n, msg, children):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(server='8050', debug=False, use_reloader=False)

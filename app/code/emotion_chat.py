@@ -493,7 +493,7 @@ class EmotionChatbot:
                     temperature=temperature,
                     top_p=top_p,
                     do_sample=True,
-                    num_beams=2,
+                    num_beams=4,
                     pad_token_id=self.tokenizer.eos_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
                     repetition_penalty=1.15,
