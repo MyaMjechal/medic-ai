@@ -38,6 +38,8 @@ drug_name_index = faiss.read_index(drug_name_index_path)
 print("[Scan] Loading SentenceTransformer (MiniLM)...")
 embedder = SentenceTransformer('all-MiniLM-L6-v2', token=HUGGINGFACE_TOKEN)
 
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(DATA_DIR, "google-cloud-service-key.json")
+
 print("[Scan] Initializing Google Vision API client...")
 vision_client = vision.ImageAnnotatorClient()
 
@@ -83,6 +85,7 @@ def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
     
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+    print("[Check OCR] clean_text: ", clean_text)
     if not clean_text.strip():
         print("[Match] OCR text is empty after cleaning.")
         return None
@@ -263,6 +266,7 @@ def scan_medicine(contents, model, tokenizer):
     try:
         image_bytes = decode_base64_image(contents)
         ocr_text = ocr_google_image(image_bytes)
+        print("[OCR] image scan result: ", ocr_text)
 
         drug_name = find_best_drug(ocr_text)
         print(f"[Match] Final matched drug: {drug_name}")
