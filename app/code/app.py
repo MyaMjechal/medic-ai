@@ -241,19 +241,18 @@ def display_page(pathname):
 
 # ---- Scan upload callback ----
 @app.callback(
-    Output('scan-window', 'children'),
-    Output('upload-btn', 'disabled'),
-    Input('upload-image', 'contents'),
+    [Output('scan-window', 'children'),
+     Output('upload-btn', 'disabled')],
+    [Input('upload-image', 'contents')],
     State('scan-window', 'children'),
     prevent_initial_call=True
 )
 def handle_upload_and_scan(contents, children):
     if not contents:
-        return children
+        return children, False  # Don't disable if nothing
 
+    # 1. Display the uploaded image immediately
     children = children or []
-
-    # 1. Add uploaded image immediately
     children.append(
         html.Div(
             html.Img(
@@ -265,44 +264,31 @@ def handle_upload_and_scan(contents, children):
         )
     )
 
-    # 2. Add "Scanning..." placeholder
-    placeholder_index = len(children)  # remember index
-    children.append(
-        html.Div(
-            "Scanning image...",
-            className="bot-msg",
-            style={'marginTop': '1rem'}
-        )
-    )
-
-    # 3. Disable the Upload button (during scanning)
+    # --- Disable Upload Button while scanning ---
     button_disabled = True
 
-    # 4. (After freezing the page, backend will continue)
-    # Start scanning process
+    # 2. Start scan
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
-    # 5. After scan complete → Enable Upload Button
+    # After scan complete → Enable Upload Button
     button_disabled = False
 
-    # 6. Build scan result
     if error:
-        result_element = html.Div(error, className="bot-msg")
-    elif drug_name and summary_text:
-        result_element = html.Div([
-            html.Strong(f"Summary for {drug_name}:"),
-            html.Ul([
-                html.Li([html.B("Use: "), summary_text['use']]),
-                html.Li([html.B("Dosage: "), summary_text['dosage']]),
-                html.Li([html.B("Common Side Effects: "), summary_text['side_effects']]),
-                html.Li([html.B("Precautions: "), summary_text['precautions']]),
-            ])
-        ], className="bot-msg")
-    else:
-        result_element = html.Div("No summary found.", className="bot-msg")
+        children.append(html.Div(error, className="bot-msg"))
+        return children, button_disabled
 
-    # 5. Replace placeholder with scan result
-    children[placeholder_index] = result_element
+    if drug_name and summary_text:
+        children.append(
+            html.Div([
+                html.Strong(f"Summary for {drug_name}:"),
+                html.Ul([
+                    html.Li([html.B("Use: "), summary_text['use']]),
+                    html.Li([html.B("Dosage: "), summary_text['dosage']]),
+                    html.Li([html.B("Common Side Effects: "), summary_text['side_effects']]),
+                    html.Li([html.B("Precautions: "), summary_text['precautions']]),
+                ])
+            ], className="bot-msg")
+        )
 
     return children, button_disabled
 
@@ -322,21 +308,6 @@ def update_therapy(n, msg, children):
         return children, ""
     return children, ""
 
-def find_child_index_by_id(children, target_id):
-    """
-    Find the index of a child element in the list that matches the given id.
-
-    Args:
-        children (list): List of Dash html.Div or components
-        target_id (dict or str): The id you're looking for
-
-    Returns:
-        int or None: The index if found, otherwise None
-    """
-    for i, child in enumerate(children):
-        if isinstance(child, html.Div) and child.props.get('id') == target_id:
-            return i
-    return None
 
 if __name__ == '__main__':
     app.run(port='8050', debug=False, use_reloader=False)
