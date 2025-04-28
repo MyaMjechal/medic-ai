@@ -298,10 +298,12 @@ def handle_upload_and_scan(contents, children):
         result_element = html.Div("No summary found.", className="bot-msg")
 
     # 5. Replace the placeholder in the list
-    for i, child in enumerate(children):
-        if isinstance(child, html.Div) and child.id == placeholder_id:
-            children[i] = result_element
-            break
+    placeholder_index = find_child_index_by_id(children, placeholder_id)
+
+    if placeholder_index is not None:
+        children[placeholder_index] = result_element
+    else:
+        print("[Warning] Placeholder not found. Skipping replacement.")
 
     return children, button_disabled
 
@@ -321,6 +323,21 @@ def update_therapy(n, msg, children):
         return children, ""
     return children, ""
 
+def find_child_index_by_id(children, target_id):
+    """
+    Find the index of a child element in the list that matches the given id.
+
+    Args:
+        children (list): List of Dash html.Div or components
+        target_id (dict or str): The id you're looking for
+
+    Returns:
+        int or None: The index if found, otherwise None
+    """
+    for i, child in enumerate(children):
+        if isinstance(child, html.Div) and child.props.get('id') == target_id:
+            return i
+    return None
 
 if __name__ == '__main__':
     app.run(port='8050', debug=False, use_reloader=False)
