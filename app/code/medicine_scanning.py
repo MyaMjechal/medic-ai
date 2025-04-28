@@ -109,6 +109,17 @@ def better_clean_text(ocr_text):
 
     return final_text
 
+def extract_all_candidate_drug_names(ocr_text):
+    lines = ocr_text.split('\n')
+
+    candidates = []
+    for line in lines:
+        line = line.strip()
+        if re.match(r'^[A-Za-z\s\-]+$', line) and 2 <= len(line) <= 30:
+            candidates.append(line.lower())
+
+    return candidates  # Return list of candidates
+
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
 
@@ -118,26 +129,34 @@ def find_best_drug(ocr_text):
     #     print("[Match] OCR text is empty after cleaning.")
     #     return None, 0.0
 
-    clean_text = better_clean_text(ocr_text)
+    candidates = extract_all_candidate_drug_names(ocr_text)
 
-    # Encode and normalize
-    # ocr_embedding = embedder.encode([clean_text])
-    ocr_embedding = embedder.encode([clean_text], normalize_embeddings=True)
+    if not candidates:
+        print("[Error] No candidate drug names found in OCR text.")
+        return None, 0.0
 
-    # FAISS cosine similarity search (Inner Product search)
-    D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
+    best_match = None
+    best_confidence = 0.0
 
-    best_idx = I[0][0]
-    best_match = drug_names[best_idx]
-    best_similarity = D[0][0]  # IP (Inner Product) score
+    for candidate in candidates:
+        clean_candidate = better_clean_text(candidate)
+        embedding = embedder.encode([clean_candidate], normalize_embeddings=True)
+        D, I = drug_name_index.search(np.array(embedding), k=1)
 
-    # Now the score is between -1 and 1
-    # Let's make it a percentage 0-100
-    match_percentage = best_similarity * 100
+        idx = I[0][0]
+        raw_similarity = D[0][0]
+        similarity = max(min(raw_similarity, 1.0), 0.0)
+        confidence = similarity * 100
 
-    print(f"[Match] FAISS best match found: {best_match} (Confidence: {match_percentage:.2f}%)")
+        match_name = drug_names[idx]
 
-    return best_match, match_percentage
+        print(f"[Candidate] {candidate} -> {match_name} ({confidence:.2f}%)")
+
+        if confidence > best_confidence:
+            best_confidence = confidence
+            best_match = match_name
+
+    return best_match, best_confidence
 
 # def find_best_drug(ocr_text):
 #     print("[Match] Finding best matching drug name (FAISS search)...")
