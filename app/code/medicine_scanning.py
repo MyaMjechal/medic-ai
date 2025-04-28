@@ -163,7 +163,7 @@ def find_best_drug(ocr_text):
             print(f"[Skip] Ignoring bad candidate: {candidate}")
             continue
         clean_candidate = better_clean_text(candidate)
-        candidate_words = clean_candidate.lower()
+        candidate_words = [w.strip() for w in clean_candidate.lower().split() if w.strip()]
 
         # --- NEW: Direct match check ---
         for trusted_drug in trusted_drugs:
