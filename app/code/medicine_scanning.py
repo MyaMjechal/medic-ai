@@ -92,9 +92,9 @@ def find_best_drug(ocr_text):
         return None
 
     ocr_embedding = embedder.encode([clean_text])
-    print("[OCR Embedding] embed result: ", ocr_embedding)
+    # print("[OCR Embedding] embed result: ", ocr_embedding)
     D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
-    print("[OCR Embedding] I value: ", I[0][0])
+    # print("[OCR Embedding] I value: ", I[0][0])
     best_idx = I[0][0]
     best_match = drug_names[best_idx]
 
