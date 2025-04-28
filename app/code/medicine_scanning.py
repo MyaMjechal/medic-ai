@@ -130,7 +130,7 @@ def is_bad_candidate(candidate):
 trusted_drugs = [
     "calpol 500 mg", "amoxicillin", "simvastatin", "omeprazole", "losartan",
     "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen",
-    "abr x", "air-x", "abr-x"
+    "air-x"
 ]
 
 fruit_keywords = ["lemon", "orange", "banana", "grape", "cherry", "apple", "mango", "berry", "peach"]
