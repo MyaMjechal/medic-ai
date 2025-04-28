@@ -84,22 +84,30 @@ def ocr_google_image(image_bytes):
 
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
-    
+
     clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
     print("[Check OCR] clean_text: ", clean_text)
     if not clean_text.strip():
         print("[Match] OCR text is empty after cleaning.")
-        return None
+        return None, 0.0
 
+    # Encode and normalize
     ocr_embedding = embedder.encode([clean_text])
-    print("[OCR Embedding] embed result: ", ocr_embedding)
+
+    # FAISS cosine similarity search (Inner Product search)
     D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
-    print("[OCR Embedding] I value: ", I[0][0])
+
     best_idx = I[0][0]
     best_match = drug_names[best_idx]
+    best_similarity = D[0][0]  # IP (Inner Product) score
 
-    print(f"[Match] FAISS best match found: {best_match}")
-    return best_match
+    # Now the score is between -1 and 1
+    # Let's make it a percentage 0-100
+    match_percentage = best_similarity * 100
+
+    print(f"[Match] FAISS best match found: {best_match} (Confidence: {match_percentage:.2f}%)")
+
+    return best_match, match_percentage
 
 # def find_best_drug(ocr_text):
 #     print("[Match] Finding best matching drug name (FAISS search)...")
@@ -131,6 +139,7 @@ def find_best_drug(ocr_text):
 def retrieve_drug_info(drug_name):
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
     query_emb = embedder.encode([drug_name])
+    # FAISS cosine similarity search
     D, I = drug_info_index.search(np.array(query_emb), k=1)
     print("[Retrieve] Drug info retrieved.")
     return df.iloc[I[0][0]].to_dict()
@@ -255,10 +264,10 @@ def parse_summary(summary_text):
 
     # Return the structured data for Q&A, formatted into HTML list items
     return [
-        html.Li(html.B("Use: ") + qna['use']),
-        html.Li(html.B("Dosage: ") + qna['dosage']),
-        html.Li(html.B("Common Side Effects: ") + qna['side_effects']),
-        html.Li(html.B("Precautions: ") + qna['precautions'])
+        html.Li(html.B("Use: "), qna['use']),
+        html.Li(html.B("Dosage: "), qna['dosage']),
+        html.Li(html.B("Common Side Effects: "), qna['side_effects']),
+        html.Li(html.B("Precautions: "), qna['precautions'])
     ]
 
 
@@ -304,10 +313,14 @@ def scan_medicine(contents, model, tokenizer):
             return None, None, "No readable text found. Please upload a clear medicine package image."
 
         # --- Drug matching ---
-        drug_name = find_best_drug(ocr_text)
+        drug_name, match_percentage = find_best_drug(ocr_text)
 
         if drug_name is None:
             return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
+
+        # --- Check if match percentage is acceptable ---
+        if match_percentage < 70:
+            print("⚠ Warning: Low confidence match. Please check OCR image.")
 
         # # --- Check if distance is acceptable ---
         # if distance > 0.6:

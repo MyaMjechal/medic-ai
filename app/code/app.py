@@ -242,17 +242,18 @@ def display_page(pathname):
 # ---- Scan upload callback ----
 @app.callback(
     [Output('scan-window', 'children'),
-     Output('upload-btn', 'disabled')],  # new output
+     Output('upload-btn', 'disabled')],
     [Input('upload-image', 'contents')],
     State('scan-window', 'children'),
     prevent_initial_call=True
 )
 def handle_upload_and_scan(contents, children):
     if not contents:
-        return children, False  # Don't disable if nothing
+        return children, False
 
-    # 1. Display the uploaded image immediately
     children = children or []
+
+    # 1. Add user-uploaded image IMMEDIATELY
     children.append(
         html.Div(
             html.Img(
@@ -267,23 +268,40 @@ def handle_upload_and_scan(contents, children):
     # --- Disable Upload Button while scanning ---
     button_disabled = True
 
-    # 2. Start scan
+    # 2. (optional) Add "scanning..." placeholder for bot
+    placeholder_id = {'type': 'scan-placeholder', 'index': len(children)}
+    children.append(
+        html.Div(
+            "Scanning image...",  # Temporary text
+            id=placeholder_id,
+            className="bot-msg"
+        )
+    )
+
+    # --- Now freeze the UI (send update to front-end) ---
+
+    # 3. Start scanning
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
     # After scan complete → Enable Upload Button
     button_disabled = False
 
+    # 4. Replace the "Scanning..." placeholder with actual result
     if error:
-        children.append(html.Div(error, className="bot-msg"))
-        return children, button_disabled
+        result_element = html.Div(error, className="bot-msg")
+    elif drug_name and summary_text:
+        result_element = html.Div([
+            html.Strong(f"Summary for {drug_name}:"),
+            html.Ul(summary_text)
+        ], className="bot-msg")
+    else:
+        result_element = html.Div("No summary found.", className="bot-msg")
 
-    if drug_name and summary_text:
-        children.append(
-            html.Div([
-                html.Strong(f"Summary for {drug_name}:"),
-                html.Ul(summary_text)
-            ], className="bot-msg")
-        )
+    # 5. Replace the placeholder in the list
+    for i, child in enumerate(children):
+        if isinstance(child, html.Div) and child.id == placeholder_id:
+            children[i] = result_element
+            break
 
     return children, button_disabled
 
