@@ -132,6 +132,13 @@ trusted_drugs = [
     "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen"
 ]
 
+fruit_keywords = ["lemon", "orange", "banana", "grape", "cherry", "apple", "mango", "berry", "peach"]
+def contains_fruit_word(text):
+    for fruit in fruit_keywords:
+        if fruit in text.lower():
+            return True
+    return False
+
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
 
@@ -155,10 +162,11 @@ def find_best_drug(ocr_text):
             print(f"[Skip] Ignoring bad candidate: {candidate}")
             continue
         clean_candidate = better_clean_text(candidate)
+        candidate_words = better_clean_text(candidate).lower().split()
 
         # --- NEW: Direct match check ---
         for trusted_drug in trusted_drugs:
-            if trusted_drug in clean_candidate:
+            if trusted_drug in candidate_words:
                 print(f"[Direct Match] {candidate} matched trusted drug: {trusted_drug}")
                 return trusted_drug, 100.0  # Bypass FAISS, 100% confidence
 
@@ -171,6 +179,11 @@ def find_best_drug(ocr_text):
         confidence = similarity * 100
 
         match_name = drug_names[idx]
+
+        # --- NEW: Fruit penalty ---
+        if contains_fruit_word(clean_candidate):
+            print(f"[Penalty] Candidate contains fruit word: {candidate}. Reducing confidence.")
+            confidence *= 0.7  # 30% penalty
 
         print(f"[Candidate] {candidate} -> {match_name} ({confidence:.2f}%)")
 
