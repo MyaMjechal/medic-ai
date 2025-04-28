@@ -263,12 +263,13 @@ def parse_summary(summary_text):
         qna[current_question] = " ".join(current_answer).strip()
 
     # Return the structured data for Q&A, formatted into HTML list items
-    return [
-        html.Li(html.B("Use: "), qna['use']),
-        html.Li(html.B("Dosage: "), qna['dosage']),
-        html.Li(html.B("Common Side Effects: "), qna['side_effects']),
-        html.Li(html.B("Precautions: "), qna['precautions'])
-    ]
+    # return [
+    #     html.Li(html.B("Use: "), qna['use']),
+    #     html.Li(html.B("Dosage: "), qna['dosage']),
+    #     html.Li(html.B("Common Side Effects: "), qna['side_effects']),
+    #     html.Li(html.B("Precautions: "), qna['precautions'])
+    # ]
+    return qna
 
 
 def split_into_bullets(summary_text):

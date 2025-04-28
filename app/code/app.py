@@ -240,20 +240,20 @@ def display_page(pathname):
     return home_page
 
 # ---- Scan upload callback ----
-# ---- Upload image callback ----
 @app.callback(
     Output('scan-window', 'children'),
+    Output('upload-btn', 'disabled'),
     Input('upload-image', 'contents'),
     State('scan-window', 'children'),
     prevent_initial_call=True
 )
-def display_uploaded_image(contents, children):
+def handle_upload_and_scan(contents, children):
     if not contents:
         return children
 
     children = children or []
 
-    # Append the uploaded image
+    # 1. Add uploaded image immediately
     children.append(
         html.Div(
             html.Img(
@@ -265,34 +265,46 @@ def display_uploaded_image(contents, children):
         )
     )
 
-    return children
+    # 2. Add "Scanning..." placeholder
+    placeholder_index = len(children)  # remember index
+    children.append(
+        html.Div(
+            "Scanning image...",
+            className="bot-msg",
+            style={'marginTop': '1rem'}
+        )
+    )
 
-# ---- Scan result callback ----
-@app.callback(
-    Output('scan-result', 'children'),
-    Input('upload-image', 'contents'),
-    prevent_initial_call=True
-)
-def scan_uploaded_image(contents):
-    if not contents:
-        return None
+    # 3. Disable the Upload button (during scanning)
+    button_disabled = True
 
+    # 4. (After freezing the page, backend will continue)
     # Start scanning process
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
-    # After scan complete → Enable Upload Button
+    # 5. After scan complete → Enable Upload Button
     button_disabled = False
+
+    # 6. Build scan result
     if error:
         result_element = html.Div(error, className="bot-msg")
     elif drug_name and summary_text:
         result_element = html.Div([
             html.Strong(f"Summary for {drug_name}:"),
-            html.Ul(summary_text)
+            html.Ul([
+                html.Li([html.B("Use: "), summary_text['use']]),
+                html.Li([html.B("Dosage: "), summary_text['dosage']]),
+                html.Li([html.B("Common Side Effects: "), summary_text['side_effects']]),
+                html.Li([html.B("Precautions: "), summary_text['precautions']]),
+            ])
         ], className="bot-msg")
     else:
         result_element = html.Div("No summary found.", className="bot-msg")
 
-    return result_element, button_disabled
+    # 5. Replace placeholder with scan result
+    children[placeholder_index] = result_element
+
+    return children, button_disabled
 
 # ---- Therapy chat callback  ----
 @app.callback(
