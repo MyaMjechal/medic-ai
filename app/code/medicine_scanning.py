@@ -198,7 +198,7 @@ def generate_summary(info, model, tokenizer):
     with torch.no_grad():
         output = model.generate(
             **input_ids,
-            max_new_tokens=200,
+            max_new_tokens=250,
             temperature=0.95,
             top_p=0.9,
             do_sample=True,
