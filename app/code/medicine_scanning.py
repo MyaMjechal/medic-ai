@@ -128,8 +128,9 @@ def is_bad_candidate(candidate):
     return False
 
 trusted_drugs = [
-    "calpol", "amoxicillin", "simvastatin", "omeprazole", "losartan",
-    "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen", "air-x"
+    "calpol 500 mg", "amoxicillin", "simvastatin", "omeprazole", "losartan",
+    "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen",
+    "air-x"
 ]
 
 fruit_keywords = ["lemon", "orange", "banana", "grape", "cherry", "apple", "mango", "berry", "peach"]
@@ -162,7 +163,7 @@ def find_best_drug(ocr_text):
             print(f"[Skip] Ignoring bad candidate: {candidate}")
             continue
         clean_candidate = better_clean_text(candidate)
-        candidate_words = clean_candidate.lower().split()
+        candidate_words = clean_candidate.lower()
 
         # --- NEW: Direct match check ---
         for trusted_drug in trusted_drugs:
