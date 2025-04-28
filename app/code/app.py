@@ -188,7 +188,7 @@ scan_page = dbc.Container([
     # Upload button (no text input)
     dcc.Upload(
         id='upload-image',
-        children=html.Button("Click to upload image", id="upload-btn", className="send-btn"),
+        children=html.Button("Click to upload image", id="upload-btn", className="send-btn", disabled=False),
         accept="image/*",
         multiple=False,
         className="mt-2"
@@ -241,16 +241,17 @@ def display_page(pathname):
 
 # ---- Scan upload callback ----
 @app.callback(
-    Output('scan-window', 'children'),  # This holds the chat window (image + text)
+    [Output('scan-window', 'children'),
+     Output('upload-btn', 'disabled')],  # new output
     [Input('upload-image', 'contents')],
     State('scan-window', 'children'),
     prevent_initial_call=True
 )
 def handle_upload_and_scan(contents, children):
     if not contents:
-        return children
+        return children, False  # Don't disable if nothing
 
-    # 1. Display the uploaded image immediately in the chat window
+    # 1. Display the uploaded image immediately
     children = children or []
     children.append(
         html.Div(
@@ -263,24 +264,28 @@ def handle_upload_and_scan(contents, children):
         )
     )
 
-    # 2. Start the scan process and get the result
+    # --- Disable Upload Button while scanning ---
+    button_disabled = True
+
+    # 2. Start scan
     drug_name, summary_text, error = scan_medicine(contents, model, tokenizer)
 
-    # Handle any error during the scan
+    # After scan complete → Enable Upload Button
+    button_disabled = False
+
     if error:
         children.append(html.Div(error, className="bot-msg"))
-        return children
+        return children, button_disabled
 
-    # 3. Show the summary text after the image
     if drug_name and summary_text:
         children.append(
             html.Div([
                 html.Strong(f"Summary for {drug_name}:"),
-                html.Ul(summary_text)  # Generates bullet points from the model output
+                html.Ul(summary_text)
             ], className="bot-msg")
         )
 
-    return children
+    return children, button_disabled
 
 # ---- Therapy chat callback  ----
 @app.callback(

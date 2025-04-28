@@ -16,10 +16,10 @@ HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-csv_path = os.path.join(DATA_DIR, "cleaned_drugbank_data.csv")
-drug_info_index_path = os.path.join(DATA_DIR, "drug_info_index_v2.faiss")
-drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings_v2.npy")
-drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index_v2.faiss")
+csv_path = os.path.join(DATA_DIR, "finalized_drugbank_data.csv")
+drug_info_index_path = os.path.join(DATA_DIR, "drug_info_index_v3.faiss")
+drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings_v3.npy")
+drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index_v3.faiss")
 
 # ---- Load Light Resources at Startup ----
 
@@ -255,10 +255,10 @@ def parse_summary(summary_text):
 
     # Return the structured data for Q&A, formatted into HTML list items
     return [
-        html.Li(f"Use: {qna['use']}"),
-        html.Li(f"Dosage: {qna['dosage']}"),
-        html.Li(f"Common Side Effects: {qna['side_effects']}"),
-        html.Li(f"Precautions: {qna['precautions']}")
+        html.Li(html.B("Use: ") + qna['use']),
+        html.Li(html.B("Dosage: ") + qna['dosage']),
+        html.Li(html.B("Common Side Effects: ") + qna['side_effects']),
+        html.Li(html.B("Precautions: ") + qna['precautions'])
     ]
 
 
