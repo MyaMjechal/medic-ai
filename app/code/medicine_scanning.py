@@ -130,7 +130,7 @@ def is_bad_candidate(candidate):
 trusted_drugs = [
     "calpol 500 mg", "amoxicillin", "simvastatin", "omeprazole", "losartan",
     "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen",
-    "air-x"
+    "abr x", "air-x", "abr-x"
 ]
 
 fruit_keywords = ["lemon", "orange", "banana", "grape", "cherry", "apple", "mango", "berry", "peach"]
@@ -167,8 +167,7 @@ def find_best_drug(ocr_text):
 
         # --- NEW: Direct match check ---
         for trusted_drug in trusted_drugs:
-            print("Check candidate T")
-            if trusted_drug == candidate_words:
+            if trusted_drug in candidate_words:
                 print(f"[Direct Match] {candidate} matched trusted drug: {trusted_drug}")
                 return trusted_drug, 100.0  # Bypass FAISS, 100% confidence
 
