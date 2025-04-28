@@ -120,6 +120,18 @@ def extract_all_candidate_drug_names(ocr_text):
 
     return candidates  # Return list of candidates
 
+bad_keywords = ["batch", "before", "expiry", "best", "no", "lot"]
+def is_bad_candidate(candidate):
+    for bad_word in bad_keywords:
+        if bad_word in candidate.lower():
+            return True
+    return False
+
+trusted_drugs = [
+    "calpol", "amoxicillin", "simvastatin", "omeprazole", "losartan",
+    "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen"
+]
+
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
 
@@ -139,7 +151,17 @@ def find_best_drug(ocr_text):
     best_confidence = 0.0
 
     for candidate in candidates:
+        if is_bad_candidate(candidate):
+            print(f"[Skip] Ignoring bad candidate: {candidate}")
+            continue
         clean_candidate = better_clean_text(candidate)
+
+        # --- NEW: Direct match check ---
+        for trusted_drug in trusted_drugs:
+            if trusted_drug in clean_candidate:
+                print(f"[Direct Match] {candidate} matched trusted drug: {trusted_drug}")
+                return trusted_drug, 100.0  # Bypass FAISS, 100% confidence
+
         embedding = embedder.encode([clean_candidate], normalize_embeddings=True)
         D, I = drug_name_index.search(np.array(embedding), k=1)
 
