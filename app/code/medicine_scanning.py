@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import numpy as np
 import pandas as pd
@@ -82,17 +83,46 @@ def ocr_google_image(image_bytes):
         print("[OCR] No text detected.")
     return response.text_annotations[0].description if response.text_annotations else ""
 
+def better_clean_text(ocr_text):
+    # 1. Only keep alphanumeric and space
+    clean_text = ''.join(e if (e.isalnum() or e.isspace()) else ' ' for e in ocr_text)
+    
+    # 2. Lowercase everything
+    clean_text = clean_text.lower()
+
+    # 3. Split into lines and words
+    words = clean_text.split()
+
+    # 4. Remove pure numbers and short garbage
+    words = [w for w in words if not w.isdigit() and len(w) > 2]
+
+    # 5. Remove duplicates but preserve order
+    seen = set()
+    filtered_words = []
+    for word in words:
+        if word not in seen:
+            seen.add(word)
+            filtered_words.append(word)
+
+    # 6. Rebuild clean text
+    final_text = ' '.join(filtered_words)
+
+    return final_text
+
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
 
-    clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-    print("[Check OCR] clean_text: ", clean_text)
-    if not clean_text.strip():
-        print("[Match] OCR text is empty after cleaning.")
-        return None, 0.0
+    # clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+    # print("[Check OCR] clean_text: ", clean_text)
+    # if not clean_text.strip():
+    #     print("[Match] OCR text is empty after cleaning.")
+    #     return None, 0.0
+
+    clean_text = better_clean_text(ocr_text)
 
     # Encode and normalize
-    ocr_embedding = embedder.encode([clean_text])
+    # ocr_embedding = embedder.encode([clean_text])
+    ocr_embedding = embedder.encode([clean_text], normalize_embeddings=True)
 
     # FAISS cosine similarity search (Inner Product search)
     D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
