@@ -1,5 +1,4 @@
 import os
-import re
 import base64
 import numpy as np
 import pandas as pd
@@ -17,10 +16,10 @@ HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN")
 BASE_DIR = os.path.dirname(__file__)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-csv_path = os.path.join(DATA_DIR, "finalized_drugbank_data.csv")
-drug_info_index_path = os.path.join(DATA_DIR, "drug_info_index_v3.faiss")
-drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings_v3.npy")
-drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index_v3.faiss")
+csv_path = os.path.join(DATA_DIR, "cleaned_drugbank_data.csv")
+drug_info_index_path = os.path.join(DATA_DIR, "drug_info_index_v2.faiss")
+drug_name_embeddings_path = os.path.join(DATA_DIR, "drug_name_embeddings_v2.npy")
+drug_name_index_path = os.path.join(DATA_DIR, "drug_name_index_v2.faiss")
 
 # ---- Load Light Resources at Startup ----
 
@@ -83,117 +82,24 @@ def ocr_google_image(image_bytes):
         print("[OCR] No text detected.")
     return response.text_annotations[0].description if response.text_annotations else ""
 
-def better_clean_text(ocr_text):
-    # 1. Only keep alphanumeric and space
-    clean_text = ''.join(e if (e.isalnum() or e.isspace()) else ' ' for e in ocr_text)
-    
-    # 2. Lowercase everything
-    clean_text = clean_text.lower()
-
-    # 3. Split into lines and words
-    words = clean_text.split()
-
-    # 4. Remove pure numbers and short garbage
-    words = [w for w in words if not w.isdigit() and len(w) > 2]
-
-    # 5. Remove duplicates but preserve order
-    seen = set()
-    filtered_words = []
-    for word in words:
-        if word not in seen:
-            seen.add(word)
-            filtered_words.append(word)
-
-    # 6. Rebuild clean text
-    final_text = ' '.join(filtered_words)
-
-    return final_text
-
-def extract_all_candidate_drug_names(ocr_text):
-    lines = ocr_text.split('\n')
-
-    candidates = []
-    for line in lines:
-        line = line.strip()
-        if re.match(r'^[A-Za-z\s\-]+$', line) and 2 <= len(line) <= 30:
-            candidates.append(line.lower())
-
-    return candidates  # Return list of candidates
-
-bad_keywords = ["batch", "before", "expiry", "best", "no", "lot"]
-def is_bad_candidate(candidate):
-    for bad_word in bad_keywords:
-        if bad_word in candidate.lower():
-            return True
-    return False
-
-trusted_drugs = [
-    "calpol 500 mg", "amoxicillin", "simvastatin", "omeprazole", "losartan",
-    "amlodipine", "metformin", "salbutamol", "cetirizine", "ibuprofen",
-    "air-x", "air"
-]
-
-fruit_keywords = ["lemon", "orange", "banana", "grape", "cherry", "apple", "mango", "berry", "peach"]
-def contains_fruit_word(text):
-    for fruit in fruit_keywords:
-        if fruit in text.lower():
-            return True
-    return False
-
 def find_best_drug(ocr_text):
     print("[Match] Finding best matching drug name (FAISS search)...")
+    
+    clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
+    print("[Check OCR] clean_text: ", clean_text)
+    if not clean_text.strip():
+        print("[Match] OCR text is empty after cleaning.")
+        return None
 
-    # clean_text = ''.join(e for e in ocr_text if e.isalnum() or e.isspace())
-    # print("[Check OCR] clean_text: ", clean_text)
-    # if not clean_text.strip():
-    #     print("[Match] OCR text is empty after cleaning.")
-    #     return None, 0.0
+    ocr_embedding = embedder.encode([clean_text])
+    print("[OCR Embedding] embed result: ", ocr_embedding)
+    D, I = drug_name_index.search(np.array(ocr_embedding), k=1)
+    print("[OCR Embedding] I value: ", I[0][0])
+    best_idx = I[0][0]
+    best_match = drug_names[best_idx]
 
-    candidates = extract_all_candidate_drug_names(ocr_text)
-
-    if not candidates:
-        print("[Error] No candidate drug names found in OCR text.")
-        return None, 0.0
-
-    best_match = None
-    best_confidence = 0.0
-
-    for candidate in candidates:
-        if is_bad_candidate(candidate):
-            print(f"[Skip] Ignoring bad candidate: {candidate}")
-            continue
-        clean_candidate = better_clean_text(candidate)
-        # candidate_words = [w.strip() for w in clean_candidate.lower().split() if w.strip()]
-        candidate_words = clean_candidate.lower().split()
-
-        # --- NEW: Direct match check ---
-        for trusted_drug in trusted_drugs:
-            if trusted_drug in candidate_words:
-                print(f"[Direct Match] {candidate} matched trusted drug: {trusted_drug}")
-                return trusted_drug, 100.0  # Bypass FAISS, 100% confidence
-
-        embedding = embedder.encode([clean_candidate], normalize_embeddings=True)
-        D, I = drug_name_index.search(np.array(embedding), k=1)
-
-        idx = I[0][0]
-        raw_similarity = D[0][0]
-        similarity = max(min(raw_similarity, 1.0), 0.0)
-        confidence = similarity * 100
-
-        match_name = drug_names[idx]
-
-        # --- NEW: Fruit penalty ---
-        if contains_fruit_word(clean_candidate):
-            print(f"[Penalty] Candidate contains fruit word: {candidate}. Reducing confidence.")
-            confidence *= 0.7  # 30% penalty
-
-        print(f"[Candidate] {candidate} -> {match_name} ({confidence:.2f}%)")
-
-        if confidence > best_confidence:
-            best_confidence = confidence
-            best_match = match_name
-
-    return best_match, best_confidence
+    print(f"[Match] FAISS best match found: {best_match}")
+    return best_match
 
 # def find_best_drug(ocr_text):
 #     print("[Match] Finding best matching drug name (FAISS search)...")
@@ -225,7 +131,6 @@ def find_best_drug(ocr_text):
 def retrieve_drug_info(drug_name):
     print(f"[Retrieve] Retrieving drug info for: {drug_name}")
     query_emb = embedder.encode([drug_name])
-    # FAISS cosine similarity search
     D, I = drug_info_index.search(np.array(query_emb), k=1)
     print("[Retrieve] Drug info retrieved.")
     return df.iloc[I[0][0]].to_dict()
@@ -350,10 +255,10 @@ def parse_summary(summary_text):
 
     # Return the structured data for Q&A, formatted into HTML list items
     # return [
-    #     html.Li(html.B("Use: "), qna['use']),
-    #     html.Li(html.B("Dosage: "), qna['dosage']),
-    #     html.Li(html.B("Common Side Effects: "), qna['side_effects']),
-    #     html.Li(html.B("Precautions: "), qna['precautions'])
+    #     html.Li(f"Use: {qna['use']}"),
+    #     html.Li(f"Dosage: {qna['dosage']}"),
+    #     html.Li(f"Common Side Effects: {qna['side_effects']}"),
+    #     html.Li(f"Precautions: {qna['precautions']}")
     # ]
     return qna
 
@@ -400,14 +305,10 @@ def scan_medicine(contents, model, tokenizer):
             return None, None, "No readable text found. Please upload a clear medicine package image."
 
         # --- Drug matching ---
-        drug_name, match_percentage = find_best_drug(ocr_text)
+        drug_name = find_best_drug(ocr_text)
 
         if drug_name is None:
             return None, None, "This image does not appear to be a medicine package. Please insert a medicine package."
-
-        # --- Check if match percentage is acceptable ---
-        if match_percentage < 70:
-            print("⚠ Warning: Low confidence match. Please check OCR image.")
 
         # # --- Check if distance is acceptable ---
         # if distance > 0.6:
